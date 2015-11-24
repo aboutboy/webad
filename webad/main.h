@@ -27,8 +27,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "netfilter.h"
-#include "libipq.h"
+#include <linux/netfilter.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
 
 
 #include "list.h"
@@ -76,7 +76,7 @@ typedef enum
 
 struct ipq_msg
 {
-	struct ipq_handle *h;
+	struct nfq_q_handle *qh;
 	int status;
 	long current_skb_num;
 	unsigned char buf[BUFSIZE];
@@ -108,6 +108,9 @@ struct http_hdr
 struct _skb
 {
 	struct list_head list;
+	int pkt_id;
+	int pload_len;
+	unsigned char* pload;
 	struct iphdr *iph;
 	struct tcphdr *tcp;
 	struct http_hdr hhdr;
@@ -119,8 +122,6 @@ struct _skb
 	int httph_len;
 	char* http_head;
 	char* http_data;
-	ipq_packet_msg_t *m;
-	unsigned char buf[BUFSIZE];
 };
 
 struct http_conntrack
