@@ -1,11 +1,9 @@
-#makefile
-
+CURRENT_DIR=`pwd`
 SRC 			= $(wildcard *.c)
 OBJS 			= $(patsubst %.c,%.o,$(SRC))
 
 APP_INCLUDE += -I./include
-LIBRARY	=  -lpthread
-
+LIBRARY	+= -lmnl -lnetfilter_queue -lpthread
 TARGET			= webad
 
 CFLAGS 			= $(CFLAGS_EXTRA) -Wall -g -o  
