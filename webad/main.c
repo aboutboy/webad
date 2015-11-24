@@ -113,13 +113,13 @@ int change_url(struct _skb *skb)
 int change_accept_encoding(struct _skb *skb)
 {	
 	char* tmp;
-	tmp=strstr(skb->http_head, "Accept-Encoding: gzip,deflate");
+	tmp=strstr(skb->http_head, "Accept-Encoding: gzip");
 	if(!tmp)
 	{
 		return -1;
 	}
 	
-	memcpy(tmp + strlen("Accept-Encoding: "), "            " , 12);
+	tmp[0]='B';
 
 	skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len);
 	return 0;
