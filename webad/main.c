@@ -402,18 +402,13 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
     
 }
 
-int main(int argc, const char *argv[])
+int nfq()
 {
-    int len, fd;
+	int len, fd;
     char buf[BUFSIZE]={0};
     struct nfq_handle *h;
     struct nfq_q_handle *qh;
-
-	init_mpool(1*1024*1024);//256M
-	init_queue();
-	init_thpool(1);
-	
-    //call nfq_open() to open a NFQUEUE handler
+	//call nfq_open() to open a NFQUEUE handler
     h = nfq_open();
     if(!h)
     {
@@ -461,5 +456,21 @@ int main(int argc, const char *argv[])
 
     nfq_destroy_queue(qh);
     nfq_close(h);
+    return 0;
+}
+int main(int argc, const char *argv[])
+{
+    
+
+	init_mpool(1*1024*1024);//256M
+	init_queue();
+	init_thpool(1);
+
+	system("iptables -D INPUT -p tcp --sport 80 -j QUEUE");
+	system("iptables -D OUTPUT -p tcp --dport 80 -j QUEUE");
+	system("iptables -A INPUT -p tcp --sport 80 -j QUEUE");
+	system("iptables -A OUTPUT -p tcp --dport 80 -j QUEUE");
+	
+	nfq();
     return 0;
 }

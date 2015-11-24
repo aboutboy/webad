@@ -6,6 +6,7 @@ LOCAL_MODULE:= webad
 
 LOCAL_SRC_FILES := \
     main.c \
+    libipq.c \
     mpool.c \
     msocket.c \
     plug.c \
