@@ -700,3 +700,65 @@ long get_current_sec()
 	return tv.tv_sec;
 }
 
+
+unsigned short in_cksum(unsigned short *addr, int len)    /* function is from ping.c */
+{
+    register int nleft = len;
+    register u_short *w = addr;
+    register int sum = 0;
+    u_short answer =0;
+ 
+    while (nleft > 1)
+        {
+        sum += *w++;
+        nleft -= 2;
+        }
+    if (nleft == 1)
+        {      
+        *(u_char *)(&answer) = *(u_char *)w;
+        sum += answer;
+        }
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += (sum >> 16);
+    answer = ~sum;
+    return(answer);
+}
+
+unsigned short ip_chsum(struct iphdr *iph)
+{
+	unsigned short check;
+	iph->check=0;
+	check=in_cksum((unsigned short *)iph, sizeof(struct iphdr));
+	return check;
+}
+
+unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len)
+{
+	char check_buf[BUFSIZE]={0};
+	unsigned short check;
+	
+    struct pseudo_header
+    {
+        unsigned int source_address;
+        unsigned int dest_address;
+        unsigned char placeholder;
+        unsigned char protocol;
+        unsigned short tcp_length;
+    } pseudo;
+	
+	tcp->check=0;
+
+    // set the pseudo header fields 
+    pseudo.source_address = iph->saddr;
+    pseudo.dest_address = iph->daddr;
+    pseudo.placeholder = 0;
+    pseudo.protocol = IPPROTO_TCP;
+    pseudo.tcp_length = htons(tcp_len);
+	memcpy(check_buf,&pseudo,sizeof(struct pseudo_header));
+	memcpy(check_buf+sizeof(struct pseudo_header),tcp,tcp_len);
+    check = in_cksum((unsigned short *)&check_buf, sizeof(struct pseudo_header)+tcp_len);
+	
+	return check;
+	
+}
+

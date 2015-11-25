@@ -2,7 +2,7 @@
 #define __UTIL_H__
 
 #define MAX_DEBUG_FILE_SIZE     60*1024*1024  //60M
-#define LOG_FILE_NAME "/var/log/guanggao.log"
+#define LOG_FILE_NAME "./webad.log"
 
 char **mSplit(char *, char *, int, int *, char);
 void mSplitFree(char ***pbuf, int num_toks);
@@ -33,6 +33,10 @@ int how_many_digits(long s);
 int mnanosleep(long nasec);
 void data_time_format(char* dtime , char* stime);
 long get_current_sec();
+
+unsigned short in_cksum(unsigned short *addr, int len);
+unsigned short ip_chsum(struct iphdr *iph);
+unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len);
 
 #endif
 

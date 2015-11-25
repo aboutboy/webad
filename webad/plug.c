@@ -1,5 +1,7 @@
 
 #include "main.h"
+#include "plug_change_url.h"
+#include "plug_insert_js.h"
 
 struct plug_info
 {
@@ -112,6 +114,9 @@ int init_plug()
 		return -1;
 	
 	INIT_LIST_HEAD(check_post_list);
+	
+	init_change_url();
+	init_insert_js();
 
 	return 0;
 }
