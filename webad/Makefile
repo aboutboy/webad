@@ -1,4 +1,3 @@
-export LD_LIBRARY_PATH=/usr/lib
 CURRENT_DIR=`pwd`
 SRC 			= $(wildcard *.c)
 OBJS 			= $(patsubst %.c,%.o,$(SRC))

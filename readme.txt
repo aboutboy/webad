@@ -1,8 +1,8 @@
 依赖
-1、libipq.so(已经合并到项目中)
-2、ip_queue.ko(开启netfilter会支持此模块)
-3、iptables(android系统自带)
-4、配置内核，支持netfilter(默认已经开启)
+1、libmnl(已经合并到项目中)
+2、libnfnetlink(已经合并到项目中)
+3、libnetfilter_queue(已经合并到项目中)
+4、配置内核，支持netfilter,netlink(默认已经开启)
 
 移植
 1、如果内核不支持netfilter
@@ -15,8 +15,5 @@
     	class main
     	user system
     	group system
-4、在android根目录执行make命令
+4、在android根目录执行make命令或者执行mmm external/webad
 5、将编译出来的文件进行刷机
-
-问题
-1、Unable to create netlink socket: Protocol not supported
