@@ -1,6 +1,6 @@
 # libnetfilter_queue pkg-config file
 
-prefix=/usr/local
+prefix=/usr
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
@@ -12,5 +12,5 @@ Version: 1.0.2
 Requires: libnfnetlink
 Conflicts:
 Libs: -L${libdir} -lnetfilter_queue
-Libs.private: -L../libnfnetlink/src/.libs/
+Libs.private: -L/root/webad/libnetfilter_queue/libnfnetlink/src/.libs/
 Cflags: -I${includedir}

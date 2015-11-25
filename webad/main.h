@@ -74,12 +74,9 @@ typedef enum
 }TIMEOUT;
 
 
-struct ipq_msg
+struct nfq_msg
 {
-	struct nfq_q_handle *qh;
-	int status;
 	long current_skb_num;
-	unsigned char buf[BUFSIZE];
 };
 
 struct http_hdr
@@ -112,7 +109,9 @@ struct _skb
 	int pload_len;
 	unsigned char* pload;
 	struct iphdr *iph;
-	struct tcphdr *tcp;
+	struct tcphdr *tcp;	
+	char* http_head;
+	char* http_data;
 	struct http_hdr hhdr;
 	int iph_len;
 	int ip_len;
@@ -120,16 +119,13 @@ struct _skb
 	int tcp_len;
 	int http_len;
 	int httph_len;
-	char* http_head;
-	char* http_data;
 };
 
 struct http_conntrack
 {
 	struct list_head list;
 	struct list_head request_conntrack_list;
-	unsigned long ip;
-	char host[COMM_MAX_LEN];
+	struct _skb* skb;
 	short request_conntrack_num;
 	long last_time;
 };
@@ -139,9 +135,6 @@ struct request_conntrack
 	struct list_head list;
 	struct list_head response_conntrack_list;
 	struct _skb* skb;
-	char is_send;
-	unsigned short curr_content_length;
-	unsigned short content_length;
 	short response_conntrack_num;
 	long last_time;
 };

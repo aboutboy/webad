@@ -125,6 +125,39 @@ int change_accept_encoding(struct _skb *skb)
 	return 0;
 }
 
+int dispath(struct _skb* skb)
+{
+	if(skb->http_len <=1 || !skb->http_head )
+	{
+		return -1;
+	}
+	
+	switch (skb->hhdr.http_type)
+	{
+		case HTTP_TYPE_REQUEST_GET:
+		{
+			if(0==strcmp(skb->hhdr.uri , "/"))
+			{
+				change_accept_encoding(skb);	
+				return 0;
+			}
+			return -1;
+		}
+		case HTTP_TYPE_REQUEST_POST:
+		{
+			return -1;
+		}
+		case HTTP_TYPE_RESPONSE:
+		case HTTP_TYPE_OTHER:
+		default:
+		{
+			insert_code(skb);
+			return 0;			
+		}			
+	}
+	return 0;
+}
+
 
 int decode_http(struct _skb *skb)
 {
@@ -335,34 +368,6 @@ int decode(struct _skb* skb)
 		sip ,dip,
 		ntohl(skb->tcp->seq) , ntohl(skb->tcp->ack_seq));
 	*/
-	if(skb->http_len <=1 || !skb->http_head )
-	{
-		return -1;
-	}
-	
-	switch (skb->hhdr.http_type)
-	{
-		case HTTP_TYPE_REQUEST_GET:
-		{
-			if(0==strcmp(skb->hhdr.uri , "/"))
-			{
-				change_accept_encoding(skb);	
-				return 0;
-			}
-			return -1;
-		}
-		case HTTP_TYPE_REQUEST_POST:
-		{
-			return -1;
-		}
-		case HTTP_TYPE_RESPONSE:
-		case HTTP_TYPE_OTHER:
-		default:
-		{
-			insert_code(skb);
-			return 0;			
-		}			
-	}
 
 	return 0;
 }
@@ -393,7 +398,12 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
 	{
 		nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
 		return -1;
+	}
 
+	if(-1==dispath(&skb))
+	{
+		nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
+		return -1;
 	}
 	
 	nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, skb.pload_len, skb.pload);
