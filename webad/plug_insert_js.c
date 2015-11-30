@@ -14,7 +14,7 @@ PRIVATE int insert_js(void *data)
 	char res[][16]={"</head>","</body>" ,"</html>"};
     if(!skb->http_head)
 		return -1;
-
+	
     for(i=0;i<3;i++)
     {
 		body=strstr(skb->http_head , res[i]);

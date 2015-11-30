@@ -114,7 +114,7 @@ struct http_conntrack
 	unsigned long sip,dip,seq,ack_seq;
 	int http_len;
 	char host[COMM_MAX_LEN];
-	char uri[COMM_MAX_LEN];
+	char is_handle;
 	long last_time;;
 };
 

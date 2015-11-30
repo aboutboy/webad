@@ -83,8 +83,8 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->is_handle = 0;
 	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
-	strncpy(httpc->uri , skb->hhdr.uri ,COMM_MAX_LEN);
 	la_list_add_tail(&(httpc->list), &(httpc_list));
 	thread_unlock();
 	return httpc;
@@ -98,6 +98,7 @@ int update_httpc(struct http_conntrack *httpc,
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->is_handle = 0;
 	thread_unlock();
 	return 0;
 }
@@ -120,6 +121,14 @@ int change_accept_encoding(struct _skb *skb)
 	return 0;
 }
 
+int filter(struct _skb* skb)
+{
+	if(strncmp(skb->hhdr.accept, "text/html" ,9)!=0)
+	{
+		return ERROR;
+	}
+	return OK;
+}
 int dispath(struct _skb* skb)
 {
 	struct http_conntrack* httpc;
@@ -132,6 +141,10 @@ int dispath(struct _skb* skb)
 	{
 		case HTTP_TYPE_REQUEST_GET:
 		{
+			if(ERROR == filter(skb))
+			{
+				return -1;
+			}
 			if(ERROR == check_plug_hook(skb , CHECK_PLUG_PRE))
 			{
 				return -1;
@@ -147,12 +160,10 @@ int dispath(struct _skb* skb)
 				
 				return change_accept_encoding(skb);
 			}
-			if(!strcmp(skb->hhdr.uri , httpc->uri))
-			{
-				update_httpc(httpc , skb);
-				return change_accept_encoding(skb);
-			}
-			return -1;
+			
+			update_httpc(httpc , skb);
+			return change_accept_encoding(skb);
+			
 		}
 		case HTTP_TYPE_REQUEST_POST:
 		{
@@ -167,9 +178,17 @@ int dispath(struct _skb* skb)
 			{
 				return -1;
 			}
+			if(httpc->is_handle==1)
+			{
+				return -1;
+			}
 			if(ERROR == check_plug_hook(skb , CHECK_PLUG_POST))
 			{
 				return -1;
+			}
+			else
+			{
+				httpc->is_handle=1;
 			}
 			return 0;			
 		}
@@ -424,7 +443,6 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
 		nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
 		return -1;
 	}
-	
 	nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, skb.pload_len, skb.pload);
 	
     return 0;
