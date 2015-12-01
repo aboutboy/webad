@@ -513,7 +513,6 @@ int main(int argc, const char *argv[])
     
 	INIT_LIST_HEAD(&httpc_list);
 	init_mpool(1*1024*1024);//256M
-	init_queue();
 	init_plug();
 	init_thpool(2);
 	thpool_add_job(timeout , NULL);

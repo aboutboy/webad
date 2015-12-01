@@ -28,14 +28,17 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <linux/netfilter.h>
-#include <libnetfilter_queue/libnetfilter_queue.h>
+#include "libnetfilter_queue.h"
 
 
 #include "list.h"
 #include "mpool.h"
 #include "msocket.h"
+#include "mstring.h"
+#include "acsmx.h"
+#include "regexp.h"
+#include "task.h"
 #include "plug.h"
-#include "queue.h"
 #include "thpool.h"
 #include "util.h"
 

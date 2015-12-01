@@ -11,6 +11,10 @@ LOCAL_SRC_FILES := \
     msocket.c \
     queue.c \
     thpool.c \
+    acsmx.c \
+    task.c \
+    regexp.c \
+    mstring.c \
     util.c \
     plug.c \
     plug_change_url.c \
