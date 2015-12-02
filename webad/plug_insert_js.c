@@ -13,7 +13,7 @@ PRIVATE int insert_js(void *data)
 	int i;
 	char res[][16]={"</head>","</body>" ,"</html>"};
     if(!skb->http_head)
-		return -1;
+		return ERROR;
 	
     for(i=0;i<3;i++)
     {
@@ -26,7 +26,7 @@ PRIVATE int insert_js(void *data)
 	}
 	if(!body)
 	{
-		return -1;
+		return ERROR;
 	}
 	len=strlen(body);
 	memcpy(buffer , skb->http_head , skb->http_len-len);
@@ -44,7 +44,7 @@ PRIVATE int insert_js(void *data)
 
     skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len+JS_LEN);
 	skb->pload_len=skb->pload_len+JS_LEN;
-    return 0;
+    return OK;
 }
 
 int init_insert_js()

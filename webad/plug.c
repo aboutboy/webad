@@ -2,6 +2,7 @@
 #include "main.h"
 #include "plug_change_url.h"
 #include "plug_insert_js.h"
+#include "plug_redirect_url.h"
 
 struct plug_info
 {
@@ -49,12 +50,12 @@ PRIVATE int check_pre_hook(void *data)
 	
 	list_for_each_entry_safe(pi, tmp, check_pre_list, list) 
 	{
-		if(ERROR==pi->plug(data))
+		if(OK==pi->plug(data))
 		{
-			return ERROR;
+			return OK;
 		}
 	}
-	return OK;
+	return ERROR;
 }
 
 PRIVATE int check_post_hook(void *data)
@@ -62,12 +63,12 @@ PRIVATE int check_post_hook(void *data)
 	struct plug_info *pi,*tmp;
 	list_for_each_entry_safe(pi, tmp, check_post_list, list) 
 	{
-		if(ERROR==pi->plug(data))
+		if(OK==pi->plug(data))
 		{
-			return ERROR;
+			return OK;
 		}
 	}
-	return OK;
+	return ERROR;
 }
 
 void new_check_plug(int (*check_hook)(void *) , int type)
@@ -116,8 +117,9 @@ int init_plug()
 	INIT_LIST_HEAD(check_post_list);
 	
 	init_change_url();
+	//init_redirect_url();
 	init_insert_js();
-
+	
 	return 0;
 }
 
