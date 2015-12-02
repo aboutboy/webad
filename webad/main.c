@@ -132,7 +132,14 @@ int filter(struct _skb* skb)
 int dispath(struct _skb* skb)
 {
 	struct http_conntrack* httpc;
+	//too short may be syn,fin,ack,heart packet
 	if(skb->http_len <=1 || !skb->http_head )
+	{
+		return -1;
+	}
+
+	//too long MTU 1500
+	if( skb->ip_len > PKT_LEN )
 	{
 		return -1;
 	}

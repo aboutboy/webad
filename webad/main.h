@@ -47,7 +47,7 @@
 #define ERROR   -1
 
 #define BUFSIZE 2048
-#define PKT_LEN 1550
+#define PKT_LEN 1500
 #define COMM_MAX_LEN 256
 #define MAX_PATTERN_NUM 20
 

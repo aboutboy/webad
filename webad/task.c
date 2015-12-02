@@ -108,15 +108,22 @@ void task_manage()
 				debug_log("task_manage child %d can not find", pid);
 				continue;
 			}
-			ti->pid_num--;
-			debug_log("recreate task task_id %d task_num %d(0:recreate,>0:no)", 
-				ti->task_id,ti->pid_num);
-			if(ti->pid_num==0)
+			if(WIFSTOPPED(stat))
 			{
-				ti->pid_num++;
-				task_create(ti);
+				task_action(ti->task_id ,TASK_ACTION_CONTINUE);
 			}
-			   
+			else if(WIFEXITED(stat)||WIFSIGNALED(stat))
+			{
+				
+				ti->pid_num--;
+				debug_log("recreate task task_id %d task_num %d(0:recreate,>0:no)", 
+					ti->task_id,ti->pid_num);
+				if(ti->pid_num==0)
+				{
+					ti->pid_num++;
+					task_create(ti);
+				}
+			}   
 		} 
 		sleep(2);
 	}
