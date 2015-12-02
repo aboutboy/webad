@@ -427,22 +427,21 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
     skb.pload_len = nfq_get_payload(nfa, &(skb.pload));
     if(skb.pload_len <=0)
     {
-       nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
-	   return -1;
+      	goto send;
     }
 
 	skb.pload[skb.pload_len]='\0';
 	if(-1==decode(&skb))
 	{
-		nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
-		return -1;
+		goto send;
 	}
 
 	if(-1==dispath(&skb))
 	{
-		nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, 0, NULL);
-		return -1;
+		goto send;
 	}
+	
+	send:
 	nfq_set_verdict(qh, skb.pkt_id, NF_ACCEPT, skb.pload_len, skb.pload);
 	
     return 0;
@@ -508,20 +507,27 @@ int nfq()
     nfq_close(h);
     return 0;
 }
-int main(int argc, const char *argv[])
+void start_work(struct task_info *ti)
 {
-    
+    signal_ignore();
 	INIT_LIST_HEAD(&httpc_list);
-	init_mpool(1*1024*1024);//256M
 	init_plug();
 	init_thpool(2);
 	thpool_add_job(timeout , NULL);
+	nfq();
+}
 
+int main(int argc, const char *argv[])
+{
+	//capure http protocol packets from kernel
 	system("iptables -D INPUT -p tcp --sport 80 -j QUEUE");
 	system("iptables -D OUTPUT -p tcp --dport 80 -j QUEUE");
 	system("iptables -A INPUT -p tcp --sport 80 -j QUEUE");
 	system("iptables -A OUTPUT -p tcp --dport 80 -j QUEUE");
 	
-	nfq();
-    return 0;
+	init_mpool(1*1024*1024);//256M
+	new_task(1, 1, start_work);
+	task_manage();
+	return 0;
 }
+

@@ -37,21 +37,18 @@ PRIVATE int task_create(struct task_info* ti)
 
 /*****************
 **task_id 		当前任务号
-**task_shm_id	数据共享任务号
-				表示当前任务需要读取这个任务号对应的共享数据
-**task_num 		任务数量
+**pid_num 		任务数量
 **task			任务主函数
 *****************/
 struct task_info* new_task(int task_id , 
-	int task_shm_id ,
-	int task_num, 
+	int pid_num, 
 	void (*task)(struct task_info*))
 {
 
 	struct task_info* new;
-	if(task_num>MAX_ONE_CREATE_PID_NUM)
+	if(pid_num>MAX_ONE_CREATE_PID_NUM)
 	{
-		debug_log("max task_num arrivte %d",task_num);
+		debug_log("max task_num arrivte %d",pid_num);
 		return NULL;
 	}
 	if(!task_list)
@@ -67,11 +64,9 @@ struct task_info* new_task(int task_id ,
 		return NULL;
 	
 	new->task_id=task_id;
-	new->task_shm_id=task_shm_id;
-	new->task_num=task_num;
-	new->pid_num=task_num;
+	new->pid_num=pid_num;
 	new->task=task;
-	
+	la_list_add_tail(&(new->list), task_list);
 	task_create(new);
 	return new;
 	
@@ -104,21 +99,24 @@ void task_manage()
 	
 	while(1)
 	{
-		if((pid = waitpid(-1, &stat, WNOHANG)) > 0)
+		if((pid = waitpid(-1, &stat, WNOHANG | WUNTRACED)) > 0)
 		{
-		       debug_log("task_manage child %d terminated", pid);
-			   ti=task_find_by_pid(pid);
-			   if(ti)
-			   {
-			   		ti->task_num--;
-					debug_log("recreate task task_id %d task_num %d(0:recreate,>0:no)", 
-							ti->task_id,ti->task_num);
-			   		if(ti->task_num==0)
-					{
-						ti->task_num=ti->pid_num;
-						task_create(ti);
-					}
-			   }
+			debug_log("task_manage child %d terminated", pid);
+			ti=task_find_by_pid(pid);
+			if(!ti)
+			{
+				debug_log("task_manage child %d can not find", pid);
+				continue;
+			}
+			ti->pid_num--;
+			debug_log("recreate task task_id %d task_num %d(0:recreate,>0:no)", 
+				ti->task_id,ti->pid_num);
+			if(ti->pid_num==0)
+			{
+				ti->pid_num++;
+				task_create(ti);
+			}
+			   
 		} 
 		sleep(2);
 	}
@@ -185,28 +183,20 @@ void signal_ignore()
 PRIVATE void task1(struct task_info *ti)
 {
 	debug_log("this is task1");
-	char data[32]="task1";
-	int len=strlen(data);
-	ti->task_shm_queue(ti , TASK_TYPE_WRITE , data , &len);
 	sleep(100);
 }
 
 PRIVATE void task2(struct task_info *ti)
 {
 	debug_log("this is task2");
-	char data[32]={0};
-	int len;
-	ti->task_shm_queue(ti , TASK_TYPE_READ , data , &len);
-	debug_log("task2 read shm queue data %s len %d" , data , len);
 	sleep(100);
 }
 
 int main()
 {
 	int t1=1,t2=2;
-	new_task(t1, 0, 1, task1);
-	new_task(t2, t1, 1, task2);
-	free_task();
+	new_task(t1, 1, task1);
+	new_task(t2, 1, task2);
 	
 	return OK;
 }
