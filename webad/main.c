@@ -173,9 +173,7 @@ int dispath(struct _skb* skb)
 		{
 			return -1;
 		}
-		case HTTP_TYPE_RESPONSE:
-		case HTTP_TYPE_OTHER:
-		default:
+		case HTTP_TYPE_RESPONSE:	
 		{
 			httpc=find_http_conntrack_by_ack(skb);
 			if(!httpc)
@@ -184,9 +182,12 @@ int dispath(struct _skb* skb)
 			}
 			
 			check_plug_hook(skb , CHECK_PLUG_POST);
-			
+	
 			return 0;			
 		}
+		case HTTP_TYPE_OTHER:
+		default:
+			return -1;	
 	}
 	return 0;
 }
