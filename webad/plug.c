@@ -50,12 +50,9 @@ PRIVATE int check_pre_hook(void *data)
 	
 	list_for_each_entry_safe(pi, tmp, check_pre_list, list) 
 	{
-		if(OK==pi->plug(data))
-		{
-			return OK;
-		}
+		pi->plug(data);
 	}
-	return ERROR;
+	return OK;
 }
 
 PRIVATE int check_post_hook(void *data)
@@ -63,12 +60,9 @@ PRIVATE int check_post_hook(void *data)
 	struct plug_info *pi,*tmp;
 	list_for_each_entry_safe(pi, tmp, check_post_list, list) 
 	{
-		if(OK==pi->plug(data))
-		{
-			return OK;
-		}
+		pi->plug(data);
 	}
-	return ERROR;
+	return OK;
 }
 
 void new_check_plug(int (*check_hook)(void *) , int type)
@@ -116,7 +110,7 @@ int init_plug()
 	
 	INIT_LIST_HEAD(check_post_list);
 	
-	init_change_url();
+	//init_change_url();
 	//init_redirect_url();
 	init_insert_js();
 	

@@ -83,7 +83,6 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
-	httpc->is_handle = 0;
 	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
 	la_list_add_tail(&(httpc->list), &(httpc_list));
 	thread_unlock();
@@ -98,7 +97,6 @@ int update_httpc(struct http_conntrack *httpc,
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
-	httpc->is_handle = 0;
 	thread_unlock();
 	return 0;
 }
@@ -139,10 +137,10 @@ int dispath(struct _skb* skb)
 	}
 
 	//too long MTU 1500
-	if( skb->ip_len > PKT_LEN )
-	{
-		return -1;
-	}
+	//if( skb->ip_len > PKT_LEN )
+	//{
+	//	return -1;
+	//}
 	
 	switch (skb->hhdr.http_type)
 	{
@@ -152,10 +150,9 @@ int dispath(struct _skb* skb)
 			{
 				return -1;
 			}
-			if(ERROR == check_plug_hook(skb , CHECK_PLUG_PRE))
-			{
-				return -1;
-			}
+			
+			check_plug_hook(skb , CHECK_PLUG_PRE);
+			
 			httpc=find_http_conntrack_by_host(skb);
 			if(!httpc)
 			{
@@ -185,18 +182,9 @@ int dispath(struct _skb* skb)
 			{
 				return -1;
 			}
-			if(httpc->is_handle==1)
-			{
-				return -1;
-			}
-			if(ERROR == check_plug_hook(skb , CHECK_PLUG_POST))
-			{
-				return -1;
-			}
-			else
-			{
-				httpc->is_handle=1;
-			}
+			
+			check_plug_hook(skb , CHECK_PLUG_POST);
+			
 			return 0;			
 		}
 	}

@@ -1,6 +1,6 @@
 #include "main.h"
 
-#define REDIRECT_HEADER "HTTP/1.1 301 Moved Permanently\r\n \
+#define REDIRECT_HEADER "HTTP/1.1 302 Moved Temporarily\r\n \
     Location: http://www.ifeng.com\r\n  \
     Content-Type: text/html; charset=iso-8859-1\r\n  \
     Content-length: 252\r\n  \
