@@ -277,10 +277,12 @@ int decode_http(struct _skb *skb)
 		else if(!strncasecmp(start,"content_length: ",16))
 		{
 			new_string(&skb->hhdr.content_length, start , end-start);
+			skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CONTENTLENGTH;
 		}
-		else if(!strncasecmp(start,"transfer_encoding: ",19))
+		else if(!strncasecmp(start,"transfer_encoding: chunked",26))
 		{
 			new_string(&skb->hhdr.transfer_encoding, start , end-start);
+			skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CHUNKED;
 		}
 		i+=2;
 		end+=2;
