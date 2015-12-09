@@ -42,7 +42,7 @@ struct http_conntrack* find_http_conntrack_by_host(struct _skb *skb)
 	struct http_conntrack *cursor , *tmp;
 	list_for_each_entry_safe(cursor, tmp, &httpc_list, list)
 	{
-		if(!strcmp(skb->hhdr.host , cursor->host) ||
+		if(!memcmp(skb->hhdr.host.c , cursor->host , skb->hhdr.host.l) ||
 			(skb->iph->saddr == cursor->sip &&
 			skb->iph->daddr == cursor->dip))
 		{
@@ -86,7 +86,9 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->insert_js_tag=ERROR;
 	httpc->insert_js_len=0;
 	httpc->skb = skb;
-	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
+	if(skb->hhdr.host.l < COMM_MAX_LEN)
+		strncpy(httpc->host , skb->hhdr.host.c ,skb->hhdr.host.l);
+	
 	la_list_add_tail(&(httpc->list), &(httpc_list));
 	thread_unlock();
 	return httpc;
@@ -109,7 +111,10 @@ int update_httpc(struct http_conntrack *httpc,
 
 int filter(struct _skb* skb)
 {
-	if(strncmp(skb->hhdr.accept, "text/html" ,9)!=0)
+	if(skb->hhdr.accept.l <=0)
+		return ERROR;
+	
+	if(strncasecmp(skb->hhdr.accept.c, "accept: text/html" ,17)!=0)
 	{
 		return ERROR;
 	}
@@ -199,34 +204,28 @@ int dispath(struct _skb* skb)
 
 int decode_http(struct _skb *skb)
 {
-	char **toks = NULL;
-	int num_toks=0,tmp_num_toks=0;
 	int i = 0;
-	char **opts;
-	int num_opts=0;
-	char req_post[][16]={"5" ,"POST " };
-	char req_get[][16]={"4" ,"GET " };
-	char res[][16]={"7" ,"HTTP/1."};
-	char http_head_end[][16]={"4" ,"\r\n\r\n"};
+	char *start,*end;
 	
 	skb->http_len=skb->ip_len-skb->iph_len-skb->tcph_len;
 	if(skb->http_len<=0)
-		return -1;
+		return ERROR;
 	
 	skb->http_head=(char*)(skb->pload+skb->iph_len+skb->tcph_len);
 	if(!skb->http_head)
-		return -1;
+		return ERROR;
 
 	//////////////http_head_start///////////
-	if(!memcmp(skb->http_head,req_post[1],atoi(req_post[0])))
+	if(!strncasecmp(skb->http_head,"POST ",5))
 	{
 		skb->hhdr.http_type=HTTP_TYPE_REQUEST_POST;
+		return ERROR;
 	}
-	else if(!memcmp(skb->http_head,req_get[1],atoi(req_get[0])))
+	else if(!strncasecmp(skb->http_head,"GET " ,4))
 	{
 		skb->hhdr.http_type=HTTP_TYPE_REQUEST_GET;
 	}
-	else if(!memcmp(skb->http_head,res[1],atoi(res[0])))
+	else if(!strncasecmp(skb->http_head,"HTTP/1.",7))
 	{
 			
 		skb->hhdr.http_type=HTTP_TYPE_RESPONSE;
@@ -234,120 +233,75 @@ int decode_http(struct _skb *skb)
 	else 
 	{
 		skb->hhdr.http_type=HTTP_TYPE_OTHER;
-		return 0;
+		return OK;
 	}
-	toks = mSplit(skb->http_head, "\r\n", MAX_PATTERN_NUM, &num_toks,'\\');
+	
+	end=start=skb->http_head;
+	while(i<skb->http_len)
+	{	
+		if(memcmp(end , "\r\n" , 2)!=0 )
+		{
+			i++;
+			end++;
+			continue;
+		}
 
-	tmp_num_toks=num_toks;
-	num_toks--;
-	while(num_toks)
-	{ 
-		if(i==0)
+		if(!strncasecmp(start,"GET " ,4))
 		{
-			opts = mSplit(toks[i], " ", 3, &num_opts,'\\');
-			while(isspace((int)*opts[0])) opts[0]++;
-			if(skb->hhdr.http_type==HTTP_TYPE_RESPONSE)
-			{
-				strncpy(skb->hhdr.error_code, opts[1] ,COMM_MAX_LEN);
-			}
-			else if(skb->hhdr.http_type==HTTP_TYPE_REQUEST_GET||
-				skb->hhdr.http_type==HTTP_TYPE_REQUEST_POST)
-			{
-				strncpy(skb->hhdr.uri , opts[1] , COMM_MAX_LEN);
-			}
+			new_string(&skb->hhdr.uri, start , end-start);
 		}
-		else
+		else if(!strncasecmp(start,"HTTP/1.",7))
 		{
-			opts = mSplit(toks[i], ": ", 2, &num_opts,'\\');
-			while(isspace((int)*opts[0])) opts[0]++;
-			
-			if(!strcasecmp(opts[0], "host"))
-			{
-				strncpy(skb->hhdr.host , opts[1] ,COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "accept-encoding"))
-			{
-				strncpy(skb->hhdr.accept_encoding , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "accept"))
-			{
-				strncpy(skb->hhdr.accept , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "accept-charset"))
-			{
-				strncpy(skb->hhdr.accept_charset , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "accept-language"))
-			{
-				strncpy(skb->hhdr.accept_language , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "authorization"))
-			{
-				strncpy(skb->hhdr.authorization , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "cache-control"))
-			{
-				strncpy(skb->hhdr.cache_control , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "connection"))
-			{
-				strncpy(skb->hhdr.connection , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "content-encoding"))
-			{
-				strncpy(skb->hhdr.content_encoding , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "content-language"))
-			{
-				strncpy(skb->hhdr.content_language , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "content-length"))
-			{
-				strncpy(skb->hhdr.content_length , opts[1],COMM_MAX_LEN);
-				skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CONTENTLENGTH;
-			}
-			else if(!strcasecmp(opts[0], "content-type"))
-			{
-				strncpy(skb->hhdr.content_type , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "content-range"))
-			{
-				strncpy(skb->hhdr.content_range , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "connection"))
-			{
-				strncpy(skb->hhdr.connection , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "user-agent"))
-			{
-				strncpy(skb->hhdr.user_agent , opts[1],COMM_MAX_LEN);
-			}
-			else if(!strcasecmp(opts[0], "transfer-encoding"))
-			{
-				strncpy(skb->hhdr.transfer_encoding , opts[1],COMM_MAX_LEN);
-				if(!strcmp(skb->hhdr.transfer_encoding , "chunked"))
-				{
-					skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CHUNKED;
-					
-				}
-			}	
+			new_string(&skb->hhdr.error_code , start , end-start);
 		}
-		mSplitFree(&opts ,num_opts);
-		--num_toks;
-		i++;
+		else if(!strncasecmp(start,"host: ",6))
+		{
+			new_string(&skb->hhdr.host , start , end-start);
+		}
+		else if(!strncasecmp(start,"accept-encoding: ",17))
+		{
+			new_string(&skb->hhdr.accept_encoding, start , end-start);
+		}
+		else if(!strncasecmp(start,"accept: ",8))
+		{
+			new_string(&skb->hhdr.accept, start , end-start);
+		}
+		else if(!strncasecmp(start,"user_agent: ",12))
+		{
+			new_string(&skb->hhdr.user_agent, start , end-start);
+		}
+		else if(!strncasecmp(start,"content_encoding: ",18))
+		{
+			new_string(&skb->hhdr.content_encoding, start , end-start);
+		}
+		else if(!strncasecmp(start,"content_length: ",16))
+		{
+			new_string(&skb->hhdr.content_length, start , end-start);
+		}
+		else if(!strncasecmp(start,"transfer_encoding: ",19))
+		{
+			new_string(&skb->hhdr.transfer_encoding, start , end-start);
+		}
+		i+=2;
+		end+=2;
+		start=end;
+		if(!memcmp(start , "\r\n" , 2))
+		{
+			break;
+		}
+		
 	}
-	mSplitFree(&toks ,tmp_num_toks);
 
 	//////////////http_head_end///////////
-	skb->http_data=strstr(skb->http_head, http_head_end[1]);
+	skb->http_data=start+2;
 	if(!skb->http_data)
 	{
-		return 0;
+		return ERROR;
 	}
 	
-	skb->httph_len=strlen(skb->http_head)-strlen(skb->http_data);
+	skb->httph_len = skb->http_data - skb->http_head;
 	
-	return 0;
+	return OK;
 }
 
 int decode_tcp(struct _skb *skb)
@@ -417,6 +371,7 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
     struct nfqnl_msg_packet_hdr *ph;
 	struct _skb skb;
 
+	memset(&skb , '\0' , sizeof(struct _skb));
     //get unique ID of packet in queue
     ph = nfq_get_msg_packet_hdr(nfa);
     if(!ph)

@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <memory.h>
 #include <strings.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -73,23 +74,17 @@ struct http_hdr
 {
 	HTTP_TYPE http_type;
 	HTTP_RESPONSE_TYPE res_type;
-	char error_code[COMM_MAX_LEN];
-	char uri[COMM_MAX_LEN];
-	char host[COMM_MAX_LEN];
-	char accept_encoding[COMM_MAX_LEN];
-	char accept[COMM_MAX_LEN];
-	char accept_charset[COMM_MAX_LEN];
-	char accept_language[COMM_MAX_LEN];
-	char authorization[COMM_MAX_LEN];
-	char cache_control[COMM_MAX_LEN];
-	char connection[COMM_MAX_LEN];
-	char content_encoding[COMM_MAX_LEN];
-	char content_language[COMM_MAX_LEN];
-	char content_length[COMM_MAX_LEN];
-	char content_type[COMM_MAX_LEN];
-	char content_range[COMM_MAX_LEN];
-	char user_agent[COMM_MAX_LEN];
-	char transfer_encoding[COMM_MAX_LEN];	
+	//////GET/////////////
+	string uri;
+	string host;
+	string user_agent;
+	string accept_encoding;//gzip,deflate
+	string accept;//text/html
+	////RESPONSE/////////
+	string error_code; //200 404 
+	string content_encoding;//gzip,deflate,compress
+	string content_length;
+	string transfer_encoding;	//chunked
 };
 
 struct _skb

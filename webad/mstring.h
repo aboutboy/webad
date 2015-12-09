@@ -2,7 +2,12 @@
 #ifndef __MSTRING_H__
 #define __MSTRING_H__
 
-/*  P R O T O T Y P E S  *************************************************/
+typedef struct  _string
+{
+	char* c;
+	int l;
+	
+}string;
 
 int kmpSearch(char *, int , char *, int );
 int *make_skip(char *ptrn, int plen);
@@ -14,7 +19,9 @@ int mSearch(char *buf, int blen, char **ptrn, int* plen ,int num,
 
 
 
-
+void new_string(string* s , char* c , int l);
+string* new_mem_string(char*c , int l);
+void free_mem_string(string* s);
 
 
 #endif  /* __MSTRING_H__ */

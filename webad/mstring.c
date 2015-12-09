@@ -339,5 +339,32 @@ void test_bm()
 
 }
 
+void new_string(string* s , char* c , int l)
+{
+	s->c=c;
+	s->l=l;
+}
 
+string* new_mem_string(char*c , int l)
+{
+	string* s;
+	s=(string*)malloc(sizeof(string));
+	if(!s)
+		return NULL;
+	
+	s->c=(char*)malloc(l+1);
+	if(!s->c)
+		return NULL;
+	
+	memcpy(s->c , c , l);
+	s->l=l;
+	return s;
+}
 
+void free_mem_string(string* s)
+{
+	if(s->c)
+		free(s->c);
+	if(s)
+		free(s);
+}

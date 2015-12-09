@@ -31,7 +31,12 @@
 
 //#include <linux/string.h>
 
-#include "main.h"
+#include "regexp.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+
 //#include <linux/mm.h>
 
 //#include <linux/config.h>
@@ -259,7 +264,7 @@ regcomp(char *exp,int *patternsize)
 
 	/* Allocate space. */
 	*patternsize=sizeof(regexp) + (unsigned)regsize;
-	r = (regexp *)new_page(sizeof(regexp) + (unsigned)regsize);
+	r = (regexp *)malloc(sizeof(regexp) + (unsigned)regsize);
 	if (r == NULL)
 		FAIL("out of space");
 
