@@ -762,3 +762,16 @@ unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len)
 	
 }
 
+void hex2i(const char* hex_str, int* des_i)
+{
+        sscanf(hex_str, "%x", des_i);
+
+        return;
+}
+void i2hex(const int src_i , char* hex_str)
+{
+        sprintf(hex_str , "%x" , src_i);
+
+        return;
+}
+

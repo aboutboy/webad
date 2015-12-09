@@ -4,7 +4,8 @@
 PRIVATE int change_seq(void* data)
 {	
 	struct http_conntrack* httpc = (struct http_conntrack *)data;
-	
+
+	//after insert_js
 	if(httpc->insert_js_tag==ERROR)
     {
 	   return ERROR;

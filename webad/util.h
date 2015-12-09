@@ -37,6 +37,8 @@ long get_current_sec();
 unsigned short in_cksum(unsigned short *addr, int len);
 unsigned short ip_chsum(struct iphdr *iph);
 unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len);
+void hex2i(const char* hex_str, int* des_i);
+void i2hex(const int src_i , char* hex_str);
 
 #endif
 
