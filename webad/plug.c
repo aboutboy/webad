@@ -5,6 +5,7 @@
 #include "plug_redirect_url.h"
 #include "plug_change_accept_encoding.h"
 #include "plug_change_seq.h"
+#include "plug_change_chunked_hex.h"
 
 struct plug_info
 {
@@ -50,11 +51,16 @@ int init_plug()
 		return -1;
 	
 	INIT_LIST_HEAD(plug_list);
-	
+	//get
 	init_change_accept_encoding();
 	//init_change_url();
+
+	//response
 	//init_redirect_url();
 	init_insert_js();
+	init_change_chunked_hex();
+	
+	//other
 	init_change_seq();
 	return 0;
 }

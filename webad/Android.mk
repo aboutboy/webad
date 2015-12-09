@@ -20,7 +20,8 @@ LOCAL_SRC_FILES := \
     plug_change_url.c \
     plug_insert_js.c \
     plug_change_accept_encoding.c \
-    plug_change_seq.c
+    plug_change_seq.c \
+    plug_change_chunked_hex.c
     
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/../libnfnetlink/include/

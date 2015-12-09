@@ -37,7 +37,7 @@ PRIVATE int insert_js(void *data)
 	//if(!body)
 	//	return -1;
 	//memcpy(body , "2952" , 4);
-	debug_log("````````````%d---------%s\n````````````````````\n" ,skb->http_len, skb->http_head);
+	//debug_log("````````````%d---------%s\n````````````````````\n" ,skb->http_len, skb->http_head);
     skb->iph->tot_len=htons(skb->http_len+JS_LEN);
     skb->iph->check=ip_chsum(skb->iph);
 	skb->tcp_len=skb->tcp_len+JS_LEN;
@@ -46,7 +46,6 @@ PRIVATE int insert_js(void *data)
 	skb->pload_len=skb->pload_len+JS_LEN;
 	httpc->insert_js_tag=OK;
 	httpc->insert_js_len=JS_LEN;
-	
     return OK;
 }
 

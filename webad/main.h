@@ -83,6 +83,7 @@ struct http_hdr
 	////RESPONSE/////////
 	string error_code; //200 404 
 	string content_encoding;//gzip,deflate,compress
+	string content_type;//text/html
 	string content_length;
 	string transfer_encoding;	//chunked
 };

@@ -110,11 +110,16 @@ int update_httpc(struct http_conntrack *httpc,
 }
 
 int filter(struct _skb* skb)
-{
-	if(skb->hhdr.accept.l <=0)
+{	
+	//maybe not http protocal
+	if(skb->hhdr.host.l <= 0)
+		return ERROR;
+
+	//not html page
+	if(skb->hhdr.accept.l <= 0)
 		return ERROR;
 	
-	if(strncasecmp(skb->hhdr.accept.c, "accept: text/html" ,17)!=0)
+	if(strncasecmp(skb->hhdr.accept.c, "Accept: text/html" ,17)!=0)
 	{
 		return ERROR;
 	}
@@ -129,7 +134,7 @@ int dispath(struct _skb* skb)
 		return ERROR;
 	}
 
-	//too long MTU 1500
+	//too long MTU 1500 if MTU >1500 kernel continue subpackage 
 	//if( skb->ip_len >= PKT_LEN )
 	//{
 	//	return ERROR;
@@ -254,32 +259,36 @@ int decode_http(struct _skb *skb)
 		{
 			new_string(&skb->hhdr.error_code , start , end-start);
 		}
-		else if(!strncasecmp(start,"host: ",6))
+		else if(!strncasecmp(start,"Host: ",6))
 		{
 			new_string(&skb->hhdr.host , start , end-start);
 		}
-		else if(!strncasecmp(start,"accept-encoding: ",17))
+		else if(!strncasecmp(start,"Accept-Encoding: ",17))
 		{
 			new_string(&skb->hhdr.accept_encoding, start , end-start);
 		}
-		else if(!strncasecmp(start,"accept: ",8))
+		else if(!strncasecmp(start,"Accept: ",8))
 		{
 			new_string(&skb->hhdr.accept, start , end-start);
 		}
-		else if(!strncasecmp(start,"user_agent: ",12))
+		else if(!strncasecmp(start,"User_Agent: ",12))
 		{
 			new_string(&skb->hhdr.user_agent, start , end-start);
 		}
-		else if(!strncasecmp(start,"content_encoding: ",18))
+		else if(!strncasecmp(start,"Content-Type: ",14))
+		{
+			new_string(&skb->hhdr.content_type, start , end-start);
+		}
+		else if(!strncasecmp(start,"Content_Encoding: ",18))
 		{
 			new_string(&skb->hhdr.content_encoding, start , end-start);
 		}
-		else if(!strncasecmp(start,"content_length: ",16))
+		else if(!strncasecmp(start,"Content-Length: ",16))
 		{
 			new_string(&skb->hhdr.content_length, start , end-start);
 			skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CONTENTLENGTH;
 		}
-		else if(!strncasecmp(start,"transfer_encoding: chunked",26))
+		else if(!strncasecmp(start,"Transfer-Encoding: chunked",26))
 		{
 			new_string(&skb->hhdr.transfer_encoding, start , end-start);
 			skb->hhdr.res_type=HTTP_RESPONSE_TYPE_CHUNKED;
@@ -289,18 +298,20 @@ int decode_http(struct _skb *skb)
 		start=end;
 		if(!memcmp(start , "\r\n" , 2))
 		{
+			start+=2;
 			break;
 		}
 		
 	}
 
 	//////////////http_head_end///////////
-	skb->http_data=start+2;
+	skb->http_data=start;
 	if(!skb->http_data)
 	{
 		return ERROR;
 	}
 	
+	//////////////include /r/n/r/n ///////
 	skb->httph_len = skb->http_data - skb->http_head;
 	
 	return OK;
