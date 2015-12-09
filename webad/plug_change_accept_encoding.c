@@ -21,6 +21,6 @@ PRIVATE int change_accept_encoding(void* data)
 
 int init_change_accept_encoding()
 {
-	//new_check_plug(change_accept_encoding , CHECK_PLUG_PRE);
+	new_plug(change_accept_encoding , PLUG_TYPE_GET);
 	return OK;
 }

@@ -83,6 +83,8 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->insert_js_tag=ERROR;
+	httpc->insert_js_len=0;
 	httpc->skb = skb;
 	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
 	la_list_add_tail(&(httpc->list), &(httpc_list));
@@ -98,6 +100,8 @@ int update_httpc(struct http_conntrack *httpc,
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->insert_js_tag=ERROR;
+	httpc->insert_js_len=0;
 	httpc->skb = skb;
 	thread_unlock();
 	return 0;
@@ -117,13 +121,13 @@ int dispath(struct _skb* skb)
 	//too short may be syn,fin,ack,heart packet
 	if(skb->http_len <=1 || !skb->http_head )
 	{
-		return -1;
+		return ERROR;
 	}
 
 	//too long MTU 1500
-	//if( skb->ip_len > PKT_LEN )
+	//if( skb->ip_len >= PKT_LEN )
 	//{
-	//	return -1;
+	//	return ERROR;
 	//}
 	
 	switch (skb->hhdr.http_type)
@@ -132,7 +136,7 @@ int dispath(struct _skb* skb)
 		{
 			if(ERROR == filter(skb))
 			{
-				return -1;
+				return ERROR;
 			}
 			
 			httpc=find_http_conntrack_by_host(skb);
@@ -141,7 +145,7 @@ int dispath(struct _skb* skb)
 				httpc=init_httpc(skb);
 				if(!httpc)
 				{
-					return -1;
+					return ERROR;
 				}
 			}
 			else
@@ -150,34 +154,45 @@ int dispath(struct _skb* skb)
 
 			}
 			
-			check_plug_hook(httpc , CHECK_PLUG_PRE);
+			plug_hook(httpc , PLUG_TYPE_GET);
 			
-			return 0;
+			return OK;
 			
 		}
 		case HTTP_TYPE_REQUEST_POST:
 		{
-			return -1;
+			return ERROR;
 		}
 		case HTTP_TYPE_RESPONSE:	
 		{
 			httpc=find_http_conntrack_by_ack(skb);
 			if(!httpc)
 			{
-				return -1;
+				return ERROR;
 			}
 			
 			httpc->skb = skb;
 			
-			check_plug_hook(httpc , CHECK_PLUG_POST);
-	
-			return 0;			
+			plug_hook(httpc , PLUG_TYPE_RESPONSE);
+			
+			return OK;			
 		}
 		case HTTP_TYPE_OTHER:
 		default:
-			return -1;	
+		{
+			httpc=find_http_conntrack_by_ack(skb);
+			if(!httpc)
+			{
+				return ERROR;
+			}
+			
+			httpc->skb = skb;
+			
+			plug_hook(httpc , PLUG_TYPE_OTHER);
+			return OK;
+		}
 	}
-	return 0;
+	return OK;
 }
 
 ///////////////////////////////////////////////////////////////

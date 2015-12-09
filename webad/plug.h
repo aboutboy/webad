@@ -1,14 +1,17 @@
 #ifndef __PLUG_H__
 #define __PLUG_H__
 
-enum 
+typedef enum 
 {
-	CHECK_PLUG_PRE,
-	CHECK_PLUG_POST
-};
+	PLUG_TYPE_GET,
+	PLUG_TYPE_RESPONSE,
+	PLUG_TYPE_OTHER
+}PLUG_TYPE;
 
-void new_check_plug(int (*check_hook)(void *) , int type);
-int check_plug_hook(void *data , int type);
+void new_plug(int (*plug_hook)(void *) , PLUG_TYPE type);
+
+int plug_hook(void *data , PLUG_TYPE type);
+
 int init_plug();
 void fini_plug();
 

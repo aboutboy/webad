@@ -9,6 +9,6 @@ PRIVATE int change_url(void *data)
 
 int init_change_url()
 {
-	new_check_plug(change_url , CHECK_PLUG_PRE);
+	new_plug(change_url , PLUG_TYPE_GET);
 	return OK;
 }

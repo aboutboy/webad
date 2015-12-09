@@ -13,6 +13,10 @@ PRIVATE int insert_js(void *data)
     char buffer[BUFSIZE];
 	int len=0;
 	char* res="<html";
+	if(httpc->insert_js_tag == OK)
+	{
+		return ERROR;
+	}
     if(!skb->http_head)
 		return ERROR;
 	
@@ -33,18 +37,22 @@ PRIVATE int insert_js(void *data)
 	//if(!body)
 	//	return -1;
 	//memcpy(body , "2952" , 4);
-	debug_log("````````````%d---------%s\n````````````````````\n" ,skb->ip_len, skb->http_head);
+	//debug_log("````````````%d---------%s\n````````````````````\n" ,skb->ip_len, skb->http_head);
     skb->iph->tot_len=htons(skb->http_len+JS_LEN);
     skb->iph->check=ip_chsum(skb->iph);
-
-    skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len+JS_LEN);
+	skb->tcp_len=skb->tcp_len+JS_LEN;
+	skb->http_len=skb->http_len+JS_LEN;
+    skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len);
 	skb->pload_len=skb->pload_len+JS_LEN;
+	httpc->insert_js_tag=OK;
+	httpc->insert_js_len=JS_LEN;
+	
     return OK;
 }
 
 int init_insert_js()
 {
-	new_check_plug(insert_js , CHECK_PLUG_POST);
+	new_plug(insert_js , PLUG_TYPE_RESPONSE);
 	return 0;
 }
 

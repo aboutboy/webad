@@ -17,7 +17,9 @@
 
 PRIVATE int redirect_url(void *data)
 {
-	struct _skb *skb=(struct _skb *)data;
+	struct http_conntrack* httpc = (struct http_conntrack *)data;
+	struct _skb *skb=httpc->skb;
+	
     if(skb->hhdr.http_type != HTTP_TYPE_RESPONSE)
     {
 		return ERROR;
@@ -36,7 +38,7 @@ PRIVATE int redirect_url(void *data)
 
 int init_redirect_url()
 {
-	new_check_plug(redirect_url , CHECK_PLUG_POST);
+	new_plug(redirect_url , PLUG_TYPE_RESPONSE);
 	return 0;
 }
 
