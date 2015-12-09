@@ -109,7 +109,7 @@ int update_httpc(struct http_conntrack *httpc,
 	return 0;
 }
 
-int filter(struct _skb* skb)
+int get_filter(struct _skb* skb)
 {	
 	//maybe not http protocal
 	if(skb->hhdr.host.l <= 0)
@@ -125,6 +125,27 @@ int filter(struct _skb* skb)
 	}
 	return OK;
 }
+
+int response_filter(struct _skb* skb)
+{	
+	//normal page
+	if(skb->hhdr.error_code.l <= 0)
+		return ERROR;
+	if(strncasecmp(skb->hhdr.error_code.c , "HTTP/1.1 200 OK" , 15)!=0)
+	{
+		return ERROR;
+	}
+	//not html page
+	if(skb->hhdr.content_type.l <= 0)
+		return ERROR;
+	if(strncasecmp(skb->hhdr.content_type.c, "Content-Type: text/html" ,23)!=0)
+	{
+		return ERROR;
+	}
+	return ERROR;
+}
+
+
 int dispath(struct _skb* skb)
 {
 	struct http_conntrack* httpc;
@@ -144,7 +165,7 @@ int dispath(struct _skb* skb)
 	{
 		case HTTP_TYPE_REQUEST_GET:
 		{
-			if(ERROR == filter(skb))
+			if(ERROR == get_filter(skb))
 			{
 				return ERROR;
 			}
@@ -175,6 +196,10 @@ int dispath(struct _skb* skb)
 		}
 		case HTTP_TYPE_RESPONSE:	
 		{
+			if(ERROR == response_filter(skb))
+			{
+				return ERROR;
+			}
 			httpc=find_http_conntrack_by_ack(skb);
 			if(!httpc)
 			{
