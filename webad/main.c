@@ -142,7 +142,7 @@ int response_filter(struct _skb* skb)
 	{
 		return ERROR;
 	}
-	return ERROR;
+	return OK;
 }
 
 
