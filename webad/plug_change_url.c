@@ -3,11 +3,7 @@
 
 PRIVATE int change_url(void *data)
 {
-	struct _skb *skb=(struct _skb *)data;
-	if(!strcmp(skb->hhdr.host ,"m.hao123.com"))
-	{
-		
-	}
+	
 	return OK;
 }
 

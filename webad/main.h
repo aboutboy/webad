@@ -118,6 +118,7 @@ struct http_conntrack
 	int http_len;
 	char host[COMM_MAX_LEN];
 	long last_time;;
+	struct _skb* skb;
 };
 
 

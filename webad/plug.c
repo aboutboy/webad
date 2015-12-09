@@ -3,6 +3,7 @@
 #include "plug_change_url.h"
 #include "plug_insert_js.h"
 #include "plug_redirect_url.h"
+#include "plug_change_accept_encoding.h"
 
 struct plug_info
 {
@@ -110,6 +111,7 @@ int init_plug()
 	
 	INIT_LIST_HEAD(check_post_list);
 	
+	init_change_accept_encoding();
 	//init_change_url();
 	//init_redirect_url();
 	init_insert_js();

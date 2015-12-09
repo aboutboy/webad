@@ -83,6 +83,7 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->skb = skb;
 	strncpy(httpc->host , skb->hhdr.host ,COMM_MAX_LEN);
 	la_list_add_tail(&(httpc->list), &(httpc_list));
 	thread_unlock();
@@ -97,25 +98,8 @@ int update_httpc(struct http_conntrack *httpc,
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
 	httpc->http_len = skb->http_len;
+	httpc->skb = skb;
 	thread_unlock();
-	return 0;
-}
-
-///////////////////////////////////////////////////////////////
-
-
-int change_accept_encoding(struct _skb *skb)
-{	
-	char* tmp;
-	tmp=strstr(skb->http_head, "Accept-Encoding: gzip");
-	if(!tmp)
-	{
-		return -1;
-	}
-	
-	tmp[0]='B';
-
-	skb->tcp->check=tcp_chsum(skb->iph , skb->tcp , skb->tcp_len);
 	return 0;
 }
 
@@ -151,8 +135,6 @@ int dispath(struct _skb* skb)
 				return -1;
 			}
 			
-			check_plug_hook(skb , CHECK_PLUG_PRE);
-			
 			httpc=find_http_conntrack_by_host(skb);
 			if(!httpc)
 			{
@@ -161,12 +143,16 @@ int dispath(struct _skb* skb)
 				{
 					return -1;
 				}
-				
-				return change_accept_encoding(skb);
+			}
+			else
+			{
+				update_httpc(httpc , skb);
+
 			}
 			
-			update_httpc(httpc , skb);
-			return change_accept_encoding(skb);
+			check_plug_hook(httpc , CHECK_PLUG_PRE);
+			
+			return 0;
 			
 		}
 		case HTTP_TYPE_REQUEST_POST:
@@ -181,7 +167,9 @@ int dispath(struct _skb* skb)
 				return -1;
 			}
 			
-			check_plug_hook(skb , CHECK_PLUG_POST);
+			httpc->skb = skb;
+			
+			check_plug_hook(httpc , CHECK_PLUG_POST);
 	
 			return 0;			
 		}
@@ -192,6 +180,7 @@ int dispath(struct _skb* skb)
 	return 0;
 }
 
+///////////////////////////////////////////////////////////////
 
 int decode_http(struct _skb *skb)
 {
@@ -405,6 +394,8 @@ int decode(struct _skb* skb)
 
 	return 0;
 }
+
+//////////////////////////////////////////////////////////////
 
 static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data)
 {
