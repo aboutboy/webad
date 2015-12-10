@@ -1,7 +1,8 @@
 #include "main.h"
 
+#define JS "<script type=\"text/javascript\"></script>\r\n"
 //#define JS "<script type=\"text/javascript\"> alert('hello world') </script>\r\n"
-#define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>\r\n"
+//#define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>\r\n"
 #define JS_LEN strlen(JS)
 
 PRIVATE int insert_js(void *data)
@@ -40,7 +41,8 @@ PRIVATE int insert_js(void *data)
 	//debug_log("````````````%d---------%s\n````````````````````\n" ,skb->http_len, skb->http_head);
 	httpc->insert_js_tag=OK;
 	httpc->insert_js_len=JS_LEN;
-    
+    httpc->insert_js_seq=skb->tcp->seq;
+		
 	skb->ip_len=skb->ip_len+httpc->insert_js_len;
 	skb->tcp_len=skb->tcp_len+httpc->insert_js_len;
 	skb->http_len=skb->http_len+httpc->insert_js_len;

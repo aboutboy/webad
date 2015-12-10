@@ -116,6 +116,7 @@ struct http_conntrack
 	long last_time;
 	char insert_js_tag;
 	int insert_js_len;
+	int insert_js_seq;
 	struct _skb* skb;
 };
 

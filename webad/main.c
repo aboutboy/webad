@@ -85,6 +85,7 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	httpc->http_len = skb->http_len;
 	httpc->insert_js_tag=ERROR;
 	httpc->insert_js_len=0;
+	httpc->insert_js_seq=0;
 	httpc->skb = skb;
 	if(skb->hhdr.host.l < COMM_MAX_LEN)
 		strncpy(httpc->host , skb->hhdr.host.c ,skb->hhdr.host.l);
@@ -104,6 +105,7 @@ int update_httpc(struct http_conntrack *httpc,
 	httpc->http_len = skb->http_len;
 	httpc->insert_js_tag=ERROR;
 	httpc->insert_js_len=0;
+	httpc->insert_js_seq=0;
 	httpc->skb = skb;
 	thread_unlock();
 	return 0;
