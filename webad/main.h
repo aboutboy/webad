@@ -110,10 +110,10 @@ struct _skb
 struct http_conntrack
 {
 	struct list_head list;
-	unsigned long sip,dip,seq,ack_seq;
-	int http_len;
-	char host[COMM_MAX_LEN];
 	long last_time;
+	unsigned long sip,dip,seq,ack_seq;
+	unsigned short sp ,dp;
+	int http_len;
 	char insert_js_tag;
 	int insert_js_len;
 	int insert_js_seq;

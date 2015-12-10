@@ -1,6 +1,8 @@
 #include "main.h"
 
-#define TIMEOUT_HTTP 60*60
+#define TIMEOUT_HTTP 60
+#define MAX_HTTPC_NUM 1024
+static int current_httpc_num=0;
 
 struct list_head httpc_list;
 
@@ -23,8 +25,9 @@ void timeout(void* arg)
 		{		
 			if(current_sec - httpc_cursor->last_time > TIMEOUT_HTTP)
 			{
-				debug_log("httpc timeout");
+				//debug_log("httpc timeout");
 				thread_lock();
+				current_httpc_num--;
 				la_list_del(&httpc_cursor->list);
 				free_page(httpc_cursor);
 				httpc_cursor=NULL;
@@ -37,14 +40,15 @@ void timeout(void* arg)
 }
 ///////////////////////////////////////////////////////////////////////
 
-struct http_conntrack* find_http_conntrack_by_host(struct _skb *skb)
+struct http_conntrack* find_http_conntrack_by_tuple(struct _skb *skb)
 {
 	struct http_conntrack *cursor , *tmp;
 	list_for_each_entry_safe(cursor, tmp, &httpc_list, list)
 	{
-		if(!memcmp(skb->hhdr.host.c , cursor->host , skb->hhdr.host.l) ||
-			(skb->iph->saddr == cursor->sip &&
-			skb->iph->daddr == cursor->dip))
+		if(skb->iph->saddr == cursor->sip &&
+			skb->iph->daddr == cursor->dip &&
+			skb->tcp->source == cursor->sp &&
+			skb->tcp->dest == cursor->dp)
 		{
 			return cursor;
 		}
@@ -57,9 +61,11 @@ struct http_conntrack* find_http_conntrack_by_ack(struct _skb *skb)
 	struct http_conntrack *cursor , *tmp;
 	
 	list_for_each_entry_safe(cursor, tmp, &(httpc_list), list)
-	{		
+	{
 		if((skb->iph->saddr == cursor->dip &&
-			skb->iph->daddr == cursor->sip) &&
+			skb->iph->daddr == cursor->sip &&
+			skb->tcp->source == cursor->dp &&
+			skb->tcp->dest == cursor->sp) &&
 			ntohl(skb->tcp->ack_seq) == ntohl(cursor->seq)+cursor->http_len)
 		{
 			return cursor;
@@ -71,24 +77,34 @@ struct http_conntrack* find_http_conntrack_by_ack(struct _skb *skb)
 struct http_conntrack* init_httpc(struct _skb *skb)
 {
 	struct http_conntrack *httpc;
+
+	thread_lock();	
+	
+	if(current_httpc_num++ >= MAX_HTTPC_NUM)
+	{
+		return NULL;
+	}
 	httpc=(struct http_conntrack*)new_page(sizeof(struct  http_conntrack));
 	if(!httpc)
 	{
 		return NULL;
 	}
-	thread_lock();	
 	httpc->last_time = get_current_sec();
 	httpc->sip = skb->iph->saddr;
 	httpc->dip = skb->iph->daddr;
+	httpc->sp = skb->tcp->source;
+	httpc->dp = skb->tcp->dest;
+	
 	httpc->seq = skb->tcp->seq;
 	httpc->ack_seq = skb->tcp->ack_seq;
+	
 	httpc->http_len = skb->http_len;
+	
 	httpc->insert_js_tag=ERROR;
 	httpc->insert_js_len=0;
 	httpc->insert_js_seq=0;
+	
 	httpc->skb = skb;
-	if(skb->hhdr.host.l < COMM_MAX_LEN)
-		strncpy(httpc->host , skb->hhdr.host.c ,skb->hhdr.host.l);
 	
 	la_list_add_tail(&(httpc->list), &(httpc_list));
 	thread_unlock();
@@ -172,7 +188,7 @@ int dispath(struct _skb* skb)
 				return ERROR;
 			}
 			
-			httpc=find_http_conntrack_by_host(skb);
+			httpc=find_http_conntrack_by_tuple(skb);
 			if(!httpc)
 			{
 				httpc=init_httpc(skb);
