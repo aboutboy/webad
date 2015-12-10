@@ -10,6 +10,7 @@ PRIVATE int change_seq(void* data)
     {
 	   return ERROR;
 	}
+	//tcp sequence
 	if(ntohl(httpc->insert_js_seq)>=ntohl(httpc->skb->tcp->seq))
 	{
 		return ERROR;

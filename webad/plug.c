@@ -14,28 +14,32 @@ struct plug_info
 	int (*plug)(void*);
 };
 
-PRIVATE struct list_head* plug_list;
+PRIVATE struct list_head* plug_list[PLUG_TYPE_MAX];
 
 void new_plug(int (*plug_hook)(void *) , PLUG_TYPE type)
 {
 
 	struct plug_info* new;
 
+	if(type>=PLUG_TYPE_MAX)
+		return;
+	
 	new=(struct plug_info*)new_page(sizeof(struct plug_info));
 	if(!new)
 		return;
 	
 	new->type=type;
 	new->plug=plug_hook;
-	la_list_add_tail(&(new->list), plug_list);
+	la_list_add_tail(&(new->list), plug_list[type]);
 	
 }
 
 int plug_hook(void *data , PLUG_TYPE type)
 {
 	struct plug_info *pi,*tmp;
-	
-	list_for_each_entry_safe(pi, tmp, plug_list, list) 
+	if(type>=PLUG_TYPE_MAX)
+		return ERROR;
+	list_for_each_entry_safe(pi, tmp, plug_list[type], list) 
 	{
 		if(type == pi->type)
 			pi->plug(data);
@@ -46,11 +50,16 @@ int plug_hook(void *data , PLUG_TYPE type)
 int init_plug()
 {
 
-	plug_list=(struct list_head*)new_page(sizeof(struct list_head));
-	if(!plug_list)
-		return -1;
+	int i;
+	for(i=0;i<PLUG_TYPE_MAX;i++)
+	{
+		plug_list[i]=(struct list_head*)new_page(sizeof(struct list_head));
+		if(!plug_list[i])
+			return -1;
+		
+		INIT_LIST_HEAD(plug_list[i]);
+	}
 	
-	INIT_LIST_HEAD(plug_list);
 	//get
 	init_change_accept_encoding();
 	//init_change_url();
