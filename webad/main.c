@@ -82,11 +82,13 @@ struct http_conntrack* init_httpc(struct _skb *skb)
 	
 	if(current_httpc_num++ >= MAX_HTTPC_NUM)
 	{
+		thread_unlock();
 		return NULL;
 	}
 	httpc=(struct http_conntrack*)new_page(sizeof(struct  http_conntrack));
 	if(!httpc)
 	{
+		thread_unlock();
 		return NULL;
 	}
 	httpc->last_time = get_current_sec();
