@@ -14,16 +14,24 @@
 PRIVATE struct list_head tcp_stream_list_head; 
 PRIVATE int tcp_stream_num=0;
 
+void free_ofo(struct skb_buf *skb)
+{
+	la_list_del(&skb->list);
+	test_free(skb->pload);
+	test_free(skb);
+
+}
+
 int add2ofo_list(struct tcp_stream* tcps, struct skb_buf* skb)
 {
 	unsigned char* pload;
-	struct skb_buf *new_skb = test_malloc(sizeof(struct skb_buf));
+	struct skb_buf *new_skb = (struct skb_buf *)test_malloc(sizeof(struct skb_buf));
 	memcpy(new_skb , skb , sizeof(struct skb_buf));
 	pload = (unsigned char*)test_malloc(skb->pload_len);
 	memcpy(pload , skb->pload , skb->pload_len);
 	new_skb->pload = pload;
-	la_list_add_tail(&new_skb->list , &tcps->list);
-	
+	la_list_add_tail(&new_skb->list , &tcps->ofo_from_server);
+	//debug_log("ofo add");
 	return 0;
 }
 
@@ -32,11 +40,11 @@ void free_ofo_list(struct tcp_stream* tcps)
 	struct skb_buf *cursor , *tmp;
     list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server, list)
     {
+    	
+		//debug_log("ofo list free");
     	cursor->result=RESULT_IGNORE;
 		tcps->callback(cursor);
-		la_list_del(&cursor->list);
-    	test_free(cursor->pload);
-		test_free(cursor);
+		free_ofo(cursor);
 	}
 }
 
@@ -67,7 +75,7 @@ struct tcp_stream* find_by_tuple4(struct tuple4* addr)
     return NULL;
 }
 
-struct tcp_stream* new_tcp_stream(struct tcp_stream* tcps,struct skb_buf* skb)
+struct tcp_stream* new_tcp_stream(struct tcp_stream* tcps)
 {
 	struct tcp_stream* new_tcps;
 	
@@ -75,7 +83,6 @@ struct tcp_stream* new_tcp_stream(struct tcp_stream* tcps,struct skb_buf* skb)
 	memcpy(new_tcps , tcps , sizeof(struct tcp_stream));
 	INIT_LIST_HEAD(&new_tcps->ofo_from_server);
 	new_tcps->last_time = get_current_sec();
-	memcpy(&new_tcps->skb , skb , sizeof(struct skb_buf));
 	la_list_add_tail(&(new_tcps->list), &tcp_stream_list_head);
 	tcp_stream_num++;
 	return new_tcps;
@@ -89,56 +96,58 @@ void free_tcp_stream(struct tcp_stream* tcps)
 	tcp_stream_num--;
 }
 
-int handle_tcp_stream_from_cache(struct tcp_stream* tcps)
+void handle_tcp_stream_from_cache(struct tcp_stream* tcps)
 {
 	struct skb_buf *cursor , *tmp;
     list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server, list)
     {
-    	if(tcps->skb.seq+tcps->skb.data_len == cursor->seq)
+    	//debug_log("%lu--%lu" ,tcps->curr_seq , cursor->seq);
+    	if(tcps->curr_seq == cursor->seq)
     	{
+    		
+			//debug_log("ofo cache free");
 	    	cursor->result=RESULT_HANDLE;
 			tcps->callback(cursor);
-			tcps->skb.seq = cursor->seq;
-			tcps->skb.data_len = cursor->data_len;
-			la_list_del(&cursor->list);
-	    	test_free(cursor->pload);
-			test_free(cursor);
+			tcps->curr_seq= cursor->seq + cursor->data_len;
+			free_ofo(cursor);
 			handle_tcp_stream_from_cache(tcps);
+			break;
     	}
 	}
-
-	return 0;
 }
 
 int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 {
 
 	//debug_log("old seq %lu len %d----last seq %lu len %d",tcps->skb.seq ,tcps->skb.data_len,skb->seq,skb->data_len);
-	//1. common	
-	if(tcps->skb.seq+tcps->skb.data_len == skb->seq)
+	//debug_log("%d:%d-->%d:%d seq %lu datalen %d" , tcps->addr.sip ,  tcps->addr.dip ,  tcps->addr.sp ,  tcps->addr.dp,
+	//			skb->seq , skb->data_len);
+	//1. in order	
+	if(tcps->curr_seq== skb->seq)
 	{
-		tcps->skb.seq = skb->seq;
-		tcps->skb.data_len = skb->data_len;
+		tcps->curr_seq= skb->seq+skb->data_len;
 		return RESULT_HANDLE;
 	}
 	//2. out of order
 	//2.1 repeat or overlap
-	else if(tcps->skb.seq+tcps->skb.data_len > skb->seq)
+	else if(tcps->curr_seq > skb->seq)
 	{	
 		//repeat
-		if(tcps->skb.seq==skb->seq && tcps->skb.data_len==skb->data_len)
+		if(tcps->curr_seq==skb->seq+skb->data_len)
 		{
 			skb->pload_len=skb->pload_len-skb->data_len;
+			return RESULT_IGNORE;
 		}
 		//overlap
 		else
 		{
 			free_tcp_stream(tcps);
+			return RESULT_FREE;
 		}
-		return RESULT_IGNORE;
+		
 	}
 	//2.2 arrive to early
-	else if(tcps->skb.seq+tcps->skb.data_len < skb->seq)
+	else if(tcps->curr_seq < skb->seq)
 	{
 		add2ofo_list(tcps , skb);
 		return RESULT_CACHE;
@@ -223,8 +232,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 		{
 			tcps.state=TCP_STATE_JUST_EST;
 			tcps.from_client=1;
-			skb->syn=1;
-			new_tcps=new_tcp_stream(&tcps , skb);
+			new_tcps=new_tcp_stream(&tcps);
 		}
 		skb->result=RESULT_IGNORE;
 		callback(skb);
@@ -235,10 +243,9 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	if ((this_tcphdr->syn) && 
 			(this_tcphdr->ack))
 	{
-		tcps.state=TCP_STATE_JUST_EST;
-		new_tcps->skb.seq = skb->seq+1;
-		new_tcps->skb.ack_seq = skb->ack_seq;
-		new_tcps->skb.data_len = 0;
+		new_tcps->state=TCP_STATE_DATA;
+		new_tcps->curr_seq= skb->seq+1;
+		//debug_log("first seq %lu" , new_tcps->curr_seq);
 		skb->result=RESULT_IGNORE;
 		callback(skb);
 		return;
@@ -248,7 +255,6 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	if(this_tcphdr->fin||this_tcphdr->rst)	
 	{	
 		new_tcps->state=TCP_STATE_CLOSE;
-		skb->fin=1;
 		free_tcp_stream(new_tcps);
 		skb->result=RESULT_IGNORE;
 		callback(skb);
@@ -264,21 +270,23 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	
 	if(new_tcps->from_client)
 	{
-		skb->result=RESULT_HANDLE;
+		skb->result=RESULT_IGNORE;
 		callback(skb);
     	return;
 	}
 
 	//data
-	if(this_tcphdr->ack)
+	if(this_tcphdr->ack && new_tcps->state==TCP_STATE_DATA)
 	{
-		new_tcps->state=TCP_STATE_DATA;
 		skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
 		switch(skb->result)
 		{
 			case RESULT_HANDLE:
 			case RESULT_IGNORE:
 				callback(skb);
+				break;
+			case RESULT_FREE:
+				return;
 			case RESULT_CACHE:
 			default:
 				break;

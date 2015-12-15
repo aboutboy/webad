@@ -2,7 +2,7 @@
 
 struct nfq_q_handle *gqh;
 
-void callback(void * data)
+void tcp_stream(void * data)
 {
 	struct skb_buf* skb=(struct skb_buf*)data;
 	switch(skb->result)
@@ -43,7 +43,7 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
 
     skb.pload[skb.pload_len]='\0';
 	
-	process_tcp(&skb ,callback);
+	process_tcp(&skb ,tcp_stream);
 	
     return 0;
     

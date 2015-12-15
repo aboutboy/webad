@@ -33,6 +33,7 @@ enum
 	RESULT_IGNORE,
 	RESULT_HANDLE,
 	RESULT_CACHE,
+	RESULT_FREE,
 	RESULT_OTHER,
 };
 struct tuple4
@@ -47,8 +48,7 @@ struct skb_buf
 	int packet_id;
 	int pload_len;
 	unsigned char* pload;
-	char syn,fin;
-	unsigned int seq,ack_seq;	
+	unsigned long seq,ack_seq;	
 	unsigned int data_len;
 	char result;
 };
@@ -61,7 +61,7 @@ struct tcp_stream
 	TCP_STATE state;
 	int from_client;
 	struct list_head ofo_from_server;//only need recompose data from server 
-	struct skb_buf skb;
+	unsigned long curr_seq;
 	void (*callback)(void*);
 };
 
