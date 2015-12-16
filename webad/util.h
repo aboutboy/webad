@@ -53,6 +53,8 @@ void i2hex(const int src_i , char* hex_str);
 
 void *test_malloc(int x);
 
+void *test_remalloc(void * p ,int x);
+
 void test_free(void* x);
 
 #endif

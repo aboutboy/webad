@@ -22,11 +22,11 @@ typedef enum
 	
 }HTTP_RESPONSE_TYPE;
 
-
 struct http_hdr
 {
 	HTTP_TYPE http_type;
 	HTTP_RESPONSE_TYPE res_type;
+	int httph_len;
 	//////GET/////////////
 	string uri;
 	string host;
@@ -41,27 +41,17 @@ struct http_hdr
 	string transfer_encoding;	//chunked
 };
 
-struct http_conntrack
-{
-	struct list_head list; 
-	long last_time;
-	struct tuple4 addr;
-	struct http_hdr httph;
-	struct skb_buf skb;
-};
-
-struct http_conntrack_get
-{
-	struct list_head list; 
-	struct http_conntrack httpc;
-	struct list_head http_conntrack_response;
-};
-
-struct http_contrack_response
+struct http_request
 {
 	struct list_head list;
-	struct http_conntrack httpc;
+	struct list_head http_response_head;
+	struct tcp_stream tcps;
+	struct http_hdr hhdr;
+	struct skb_buf skb_response_cache;
 };
+
+void process_http(struct skb_buf *skb ,void (*callback)(void*));
+void init_http_session();
 
 #endif
 

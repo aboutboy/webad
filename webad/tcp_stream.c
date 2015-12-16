@@ -10,7 +10,7 @@
 #include "tcp_stream.h"
 
 #define MAX_TCP_STREAM_NUN 256
-#define MAX_TIMEOUT_SEC 20
+#define MAX_TCP_STREAM_TIMEOUT_SEC 20
 PRIVATE struct list_head tcp_stream_list_head; 
 PRIVATE int tcp_stream_num=0;
 
@@ -30,7 +30,7 @@ int add2ofo_list(struct tcp_stream* tcps, struct skb_buf* skb)
 	pload = (unsigned char*)test_malloc(skb->pload_len);
 	memcpy(pload , skb->pload , skb->pload_len);
 	new_skb->pload = pload;
-	la_list_add_tail(&new_skb->list , &tcps->ofo_from_server);
+	la_list_add_tail(&new_skb->list , &tcps->ofo_from_server_head);
 	//debug_log("ofo add");
 	return 0;
 }
@@ -38,7 +38,7 @@ int add2ofo_list(struct tcp_stream* tcps, struct skb_buf* skb)
 void free_ofo_list(struct tcp_stream* tcps)
 {
 	struct skb_buf *cursor , *tmp;
-    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server, list)
+    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
     {
     	
 		//debug_log("ofo list free");
@@ -58,7 +58,7 @@ struct tcp_stream* find_by_tuple4(struct tuple4* addr)
                     addr->sp == cursor->addr.sp &&
                     addr->dp == cursor->addr.dp)
             {
-            	cursor->from_client=1;
+            	cursor->from_client=RESULT_FROM_CLIENT;
                 return cursor;
             }
 			else if(addr->sip == cursor->addr.dip &&
@@ -66,7 +66,7 @@ struct tcp_stream* find_by_tuple4(struct tuple4* addr)
                     addr->sp == cursor->addr.dp &&
                     addr->dp == cursor->addr.sp)
 			{
-				cursor->from_client=0;
+				cursor->from_client=RESULT_FROM_SERVER;
                 return cursor;
 			}
 			else
@@ -81,7 +81,7 @@ struct tcp_stream* new_tcp_stream(struct tcp_stream* tcps)
 	
 	new_tcps=(struct tcp_stream*)test_malloc(sizeof(struct tcp_stream));
 	memcpy(new_tcps , tcps , sizeof(struct tcp_stream));
-	INIT_LIST_HEAD(&new_tcps->ofo_from_server);
+	INIT_LIST_HEAD(&new_tcps->ofo_from_server_head);
 	new_tcps->last_time = get_current_sec();
 	la_list_add_tail(&(new_tcps->list), &tcp_stream_list_head);
 	tcp_stream_num++;
@@ -99,14 +99,14 @@ void free_tcp_stream(struct tcp_stream* tcps)
 void handle_tcp_stream_from_cache(struct tcp_stream* tcps)
 {
 	struct skb_buf *cursor , *tmp;
-    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server, list)
+    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
     {
     	//debug_log("%lu--%lu" ,tcps->curr_seq , cursor->seq);
     	if(tcps->curr_seq == cursor->seq)
     	{
     		
 			//debug_log("ofo cache free");
-	    	cursor->result=RESULT_HANDLE;
+	    	cursor->result=RESULT_FROM_SERVER;
 			tcps->callback(cursor);
 			tcps->curr_seq= cursor->seq + cursor->data_len;
 			free_ofo(cursor);
@@ -126,7 +126,7 @@ int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 	if(tcps->curr_seq== skb->seq)
 	{
 		tcps->curr_seq= skb->seq+skb->data_len;
-		return RESULT_HANDLE;
+		return RESULT_FROM_SERVER;
 	}
 	//2. out of order
 	//2.1 repeat or overlap
@@ -168,7 +168,7 @@ void timeout()
 
     list_for_each_entry_safe(cursor, tmp, &tcp_stream_list_head, list)
     {
-  		 if(current_sec - cursor->last_time > MAX_TIMEOUT_SEC)
+  		 if(current_sec - cursor->last_time > MAX_TCP_STREAM_TIMEOUT_SEC)
 		 {
 		 	//debug_log("tcp stream timeout");
 			free_tcp_stream(cursor);
@@ -231,7 +231,6 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 			!(this_tcphdr->rst))
 		{
 			tcps.state=TCP_STATE_JUST_EST;
-			tcps.from_client=1;
 			new_tcps=new_tcp_stream(&tcps);
 		}
 		skb->result=RESULT_IGNORE;
@@ -268,9 +267,9 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
     	return;
 	}
 	
-	if(new_tcps->from_client)
+	if(new_tcps->from_client == RESULT_FROM_CLIENT)
 	{
-		skb->result=RESULT_IGNORE;
+		skb->result=RESULT_FROM_CLIENT;
 		callback(skb);
     	return;
 	}
@@ -281,7 +280,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 		skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
 		switch(skb->result)
 		{
-			case RESULT_HANDLE:
+			case RESULT_FROM_SERVER:
 			case RESULT_IGNORE:
 				callback(skb);
 				break;

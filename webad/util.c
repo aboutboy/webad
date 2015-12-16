@@ -814,6 +814,17 @@ void *test_malloc(int x)
 	}
 	return ret;
 }
+void *test_remalloc(void * p ,int x)
+{
+	void *ret = realloc(p , x);	
+	if (!ret)	
+	{
+		printf("test_remalloc");
+		exit(1);
+	}
+	return ret;
+
+}
 
 void test_free(void* x)
 {

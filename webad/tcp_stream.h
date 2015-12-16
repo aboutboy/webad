@@ -31,10 +31,11 @@ typedef enum
 enum
 {
 	RESULT_IGNORE,
-	RESULT_HANDLE,
 	RESULT_CACHE,
 	RESULT_FREE,
-	RESULT_OTHER,
+	RESULT_FROM_CLIENT,
+	RESULT_FROM_SERVER,
+	RESULT_OTHER
 };
 struct tuple4
 {
@@ -59,8 +60,8 @@ struct tcp_stream
 	long last_time;
 	struct tuple4 addr;
 	TCP_STATE state;
-	int from_client;
-	struct list_head ofo_from_server;//only need recompose data from server 
+	char from_client;
+	struct list_head ofo_from_server_head;//only need recompose data from server 
 	unsigned long curr_seq;
 	void (*callback)(void*);
 };

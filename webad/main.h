@@ -41,7 +41,7 @@
 #include "mpool.h"
 #include "msocket.h"
 #include "tcp_stream.h"
-
+#include "http_session.h"
 
 
 #endif

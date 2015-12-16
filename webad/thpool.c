@@ -18,7 +18,7 @@ struct th_pool_job
 	sem_t mutex;
 };
 
-#define MAX_THREAD_NUM 2048
+#define MAX_THREAD_NUM 8
 static struct th_pool_job gth_job[MAX_THREAD_NUM];
 static int gth_job_num;
 

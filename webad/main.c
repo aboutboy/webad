@@ -2,17 +2,44 @@
 
 struct nfq_q_handle *gqh;
 
-void tcp_stream(void * data)
+void http_session_handle(void * data)
 {
 	struct skb_buf* skb=(struct skb_buf*)data;
 	switch(skb->result)
 	{
-		case RESULT_HANDLE:
-			debug_log("seq %lu len %d",skb->seq ,skb->data_len);
+		case RESULT_FROM_CLIENT:
+			//debug_log("html get------> %s",skb->pload+(skb->pload_len-skb->data_len));
 			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			break;
+		case RESULT_FROM_SERVER:
+			debug_log("html response------> %s",skb->pload+(skb->pload_len-skb->data_len));
+			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			break;
 		case RESULT_IGNORE:
 			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			break;
 		case RESULT_CACHE:
+		case RESULT_FREE:
+		default:
+			break;
+	}
+}
+
+void tcp_stream_handle(void * data)
+{
+	struct skb_buf* skb=(struct skb_buf*)data;
+	switch(skb->result)
+	{
+		case RESULT_FROM_CLIENT:
+		case RESULT_FROM_SERVER:
+			//debug_log("seq %lu len %d",skb->seq ,skb->data_len);
+			process_http(skb , http_session_handle);
+			break;
+		case RESULT_IGNORE:
+			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			break;
+		case RESULT_CACHE:
+		case RESULT_FREE:
 		default:
 			break;
 	}
@@ -43,7 +70,7 @@ static int queue_cb(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_
 
     skb.pload[skb.pload_len]='\0';
 	
-	process_tcp(&skb ,tcp_stream);
+	process_tcp(&skb ,tcp_stream_handle);
 	
     return 0;
     
@@ -111,6 +138,7 @@ void start_work(struct task_info *ti)
 {
     signal_ignore();
 	init_tcp_stream();
+	init_http_session();
 	nfq();
 }
 
