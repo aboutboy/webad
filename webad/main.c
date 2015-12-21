@@ -12,8 +12,7 @@ void http_session_handle(void * data)
 			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
 			break;
 		case RESULT_FROM_SERVER:
-			debug_log("html response------> %s",skb->pload+(skb->pload_len-skb->data_len));
-			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			printf("~~~~~~~~~len %d html ------> %s" ,get_data_len_from_skb(skb),get_data_from_skb(skb));
 			break;
 		case RESULT_IGNORE:
 			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);

@@ -357,7 +357,7 @@ void debug_log(const char *fmt, ...)
 {
 	va_list va;
 	char timebuf[20];
-	char info[2048];
+	char info[2048];//max log content
 	time_t timep;
 	struct tm st_tm;
 	FILE * logfp = NULL;

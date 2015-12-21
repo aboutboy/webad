@@ -50,6 +50,8 @@ struct http_request
 	struct skb_buf skb_response_cache;
 };
 
+char* get_data_from_skb(struct skb_buf* skb);
+int get_data_len_from_skb(struct skb_buf* skb);
 void process_http(struct skb_buf *skb ,void (*callback)(void*));
 void init_http_session();
 

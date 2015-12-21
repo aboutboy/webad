@@ -156,10 +156,10 @@ int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 	return RESULT_OTHER;
 }
 
-void timeout()
+void tcp_timeout()
 {
 	struct tcp_stream *cursor , *tmp;
-	 long current_sec;
+	long current_sec;
 
 	if(tcp_stream_num	< MAX_TCP_STREAM_NUN)
 		return;
@@ -188,7 +188,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
     	return;
 	}
 	//debug_log("tcp_stream_num %d" , tcp_stream_num);
-	timeout();
+	tcp_timeout();
 	
 	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
 	
