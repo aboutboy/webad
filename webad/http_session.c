@@ -9,6 +9,7 @@
 #include "util.h"
 #include "http_session.h"
 
+#define MAX_HTML_SIZE 1024000
 #define MAX_HTTP_SESSION_NUN 256
 #define MAX_HTTP_SESSION_TIMEOUT_SEC 20
 PRIVATE int http_session_num=0;
@@ -23,13 +24,6 @@ char* get_data_from_skb(struct skb_buf* skb)
 int get_data_len_from_skb(struct skb_buf* skb)
 {
 	return skb->data_len;
-}
-
-void change_tcp_seq(struct skb_buf* skb)
-{
-	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
-	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
-	this_tcphdr->seq = htonl(skb->seq);
 }
 
 void http_chsum(struct skb_buf* skb)
@@ -96,7 +90,10 @@ void free_http_response_list(struct http_request* httpr)
     list_for_each_entry_safe(cursor, tmp, &httpr->http_response_head, list)
     {
     	//debug_log("free_http_response_list");
+    	cursor->result = RESULT_IGNORE;
+		httpr->tcps.callback(cursor);
     	la_list_del(&(cursor->list));
+		test_free(cursor->pload);
 		test_free(cursor);
 	}	
 }
@@ -105,6 +102,8 @@ int add2http_response_list(struct http_request* httpr, struct skb_buf* skb)
 {
 	struct skb_buf *new_skb = (struct skb_buf *)test_malloc(sizeof(struct skb_buf));
 	memcpy(new_skb , skb , sizeof(struct skb_buf));
+	new_skb->pload = (unsigned char *)test_malloc(skb->pload_len);
+	memcpy(new_skb->pload, skb->pload, skb->pload_len);
 	new_skb->result = RESULT_CACHE;
 	la_list_add_tail(&new_skb->list , &httpr->http_response_head);
 	
@@ -120,8 +119,8 @@ int add2http_response_list(struct http_request* httpr, struct skb_buf* skb)
 	else
 	{
 		httpr->skb_response_cache.pload= 
-			(unsigned char*)test_remalloc(httpr->skb_response_cache.pload , 
-			httpr->skb_response_cache.pload_len+skb->data_len);
+		(unsigned char*)test_remalloc(httpr->skb_response_cache.pload , 
+		httpr->skb_response_cache.pload_len+skb->data_len);
 		memcpy(httpr->skb_response_cache.pload + httpr->skb_response_cache.pload_len, 
 		skb->pload + (skb->pload_len - skb->data_len) , skb->data_len);
 		httpr->skb_response_cache.pload_len += skb->data_len;
@@ -185,24 +184,32 @@ struct http_request* find_http_request(struct tuple4* addr , struct skb_buf* skb
 
 int is_html_end(struct skb_buf* skb ,HTTP_RESPONSE_TYPE res_type)
 {		
-		char* data;
+		char *data,*tmp;
 		char search_buf[64]={0};
 		if(skb->data_len<= 64)
 			return ERROR;
 
 		data= get_data_from_skb(skb);
+		strcpy(search_buf , data + (skb->data_len- 64));
+		tmp = strstr(search_buf , "</html>");
 		
 		if(res_type == HTTP_RESPONSE_TYPE_CHUNKED)
 		{			
-			strcpy(search_buf , data + (skb->data_len- 8));
-			if(strstr(search_buf , "0"))
-				return OK;
+			if(tmp)
+			{
+				tmp = strstr(tmp , "0");
+				if(tmp)
+				{
+					return OK;
+				}
+			}
 		}
 		else if(res_type == HTTP_RESPONSE_TYPE_CONTENTLENGTH)
 		{			
-			strcpy(search_buf , data + (skb->data_len- 64));
-			if(strstr(search_buf , "</html>"))
+			if(tmp)
+			{
 				return OK;
+			}
 		}
 		else
 		{
@@ -214,31 +221,29 @@ int is_html_end(struct skb_buf* skb ,HTTP_RESPONSE_TYPE res_type)
 void handle_http_session_from_cache(struct http_request* httpr)
 {
 	struct skb_buf *cursor , *tmp;
-	char head[BUFSIZE];
+	char* data;
 	int head_len;
 	int offset=0;
 	
 	if(OK == is_html_end(&httpr->skb_response_cache , httpr->hhdr.res_type))
 	{
+		
 		httpr->skb_response_cache.result = RESULT_FROM_SERVER;
 		httpr->tcps.callback(&httpr->skb_response_cache);
-
+		
 		head_len=httpr->skb_response_cache.pload_len - httpr->skb_response_cache.data_len;
-			
-		memcpy(head , httpr->skb_response_cache.pload , head_len);//tcp/ip head
 		offset = head_len;
 		list_for_each_entry_safe(cursor, tmp, &httpr->http_response_head, list)
 	    {
 	    	if(offset >= httpr->skb_response_cache.pload_len)
 				break;
-	    	cursor->pload=(unsigned char*)head;
-			memcpy(cursor->pload + head_len , httpr->skb_response_cache.pload + offset, 
+			data = get_data_from_skb(cursor);
+			memcpy(data , httpr->skb_response_cache.pload + offset, 
 				cursor->data_len);
 			offset += cursor->data_len;
-			change_tcp_seq(cursor);
 			http_chsum(cursor);
-	    	cursor->result = RESULT_IGNORE;
-			httpr->tcps.callback(cursor);
+			//debug_log("handle_http_session_from_cache response list");
+	    	
 		}
 		free_http_request(httpr);
 	}
@@ -360,6 +365,7 @@ void http_timeout()
 	struct http_request *cursor , *tmp;
 	long current_sec;
 
+	//debug_log("%d" , http_session_num);
 	if(http_session_num	< MAX_HTTP_SESSION_NUN)
 		return;
 	
@@ -391,11 +397,11 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 	
 	http_timeout();
 
-	new_httpr = find_http_request(&addr ,skb);
 	switch(skb->result)
 	{
 		case RESULT_FROM_CLIENT:
 			{
+				new_httpr = find_http_request(&addr ,skb);
 				//first request packet must get
 				if(!new_httpr)
 				{
@@ -433,6 +439,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 			}
 		case RESULT_FROM_SERVER:
 			{
+				new_httpr = find_http_request(&addr ,skb);
 				//no find
 				if(!new_httpr)
 				{
