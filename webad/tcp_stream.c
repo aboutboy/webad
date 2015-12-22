@@ -25,9 +25,11 @@ void free_ofo(struct skb_buf *skb)
 int add2ofo_list(struct tcp_stream* tcps, struct skb_buf* skb)
 {
 	unsigned char* pload;
+	if(skb->pload_len<=0 || skb->pload_len >= BUFSIZE)
+		return -1;
 	struct skb_buf *new_skb = (struct skb_buf *)test_malloc(sizeof(struct skb_buf));
 	memcpy(new_skb , skb , sizeof(struct skb_buf));
-	pload = (unsigned char*)test_malloc(skb->pload_len);
+	pload = (unsigned char*)test_malloc(BUFSIZE);
 	memcpy(pload , skb->pload , skb->pload_len);
 	new_skb->pload = pload;
 	la_list_add_tail(&new_skb->list , &tcps->ofo_from_server_head);
@@ -35,18 +37,6 @@ int add2ofo_list(struct tcp_stream* tcps, struct skb_buf* skb)
 	return 0;
 }
 
-void free_ofo_list(struct tcp_stream* tcps)
-{
-	struct skb_buf *cursor , *tmp;
-    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
-    {
-    	
-		//debug_log("ofo list free");
-    	cursor->result=RESULT_IGNORE;
-		tcps->callback(cursor);
-		free_ofo(cursor);
-	}
-}
 
 struct tcp_stream* find_by_tuple4(struct tuple4* addr)
 {
@@ -88,12 +78,51 @@ struct tcp_stream* new_tcp_stream(struct tcp_stream* tcps)
 	return new_tcps;
 }
 
+
 void free_tcp_stream(struct tcp_stream* tcps)
 {
-	free_ofo_list(tcps);
 	la_list_del(&(tcps->list));
 	test_free(tcps);
 	tcp_stream_num--;
+}
+
+void free_tcp_stream_fin(struct tcp_stream* tcps)
+{
+	struct skb_buf *cursor , *tmp;
+    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
+    {
+		//debug_log("ofo list free fin");
+    	cursor->result=RESULT_FROM_SERVER;
+		tcps->callback(cursor);
+		free_ofo(cursor);
+	}
+	free_tcp_stream(tcps);
+}
+
+void free_tcp_stream_timeout(struct tcp_stream* tcps)
+{
+	struct skb_buf *cursor , *tmp;
+    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
+    {
+		//debug_log("ofo list free timeout");
+		free_ofo(cursor);
+	}
+	la_list_del(&(tcps->list));
+	test_free(tcps);
+	tcp_stream_num--;
+}
+
+void free_tcp_stream_abnor(struct tcp_stream* tcps)
+{
+	struct skb_buf *cursor , *tmp;
+    list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
+    {
+		//debug_log("ofo list free abnor");
+    	cursor->result=RESULT_IGNORE;
+		tcps->callback(cursor);
+		free_ofo(cursor);
+	}
+	free_tcp_stream(tcps);
 }
 
 void handle_tcp_stream_from_cache(struct tcp_stream* tcps)
@@ -141,7 +170,7 @@ int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 		//overlap
 		else
 		{
-			free_tcp_stream(tcps);
+			free_tcp_stream_abnor(tcps);
 			return RESULT_FREE;
 		}
 		
@@ -171,7 +200,7 @@ void tcp_timeout()
   		 if(current_sec - cursor->last_time > MAX_TCP_STREAM_TIMEOUT_SEC)
 		 {
 		 	//debug_log("tcp stream timeout");
-			free_tcp_stream(cursor);
+			free_tcp_stream_timeout(cursor);
 		 }
 	}
 }
@@ -254,7 +283,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	if(this_tcphdr->fin||this_tcphdr->rst)	
 	{	
 		new_tcps->state=TCP_STATE_CLOSE;
-		free_tcp_stream(new_tcps);
+		free_tcp_stream_fin(new_tcps);
 		skb->result=RESULT_IGNORE;
 		callback(skb);
 		return;

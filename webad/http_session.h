@@ -44,10 +44,8 @@ struct http_hdr
 struct http_request
 {
 	struct list_head list;
-	struct list_head http_response_head;
 	struct tcp_stream tcps;
 	struct http_hdr hhdr;
-	struct skb_buf skb_response_cache;
 };
 
 char* get_data_from_skb(struct skb_buf* skb);

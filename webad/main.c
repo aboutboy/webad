@@ -2,16 +2,6 @@
 
 struct nfq_q_handle *gqh;
 
-int js_test(struct skb_buf* skb)
-{
-	char* data = get_data_from_skb(skb);
-	char* tmp;
-	tmp = strstr(data , "</html>");
-	if(tmp)
-		memcpy(tmp+2 , "1111" , 4);
-
-	return 0;
-}
 void http_session_handle(void * data)
 {
 	struct skb_buf* skb=(struct skb_buf*)data;
@@ -19,21 +9,20 @@ void http_session_handle(void * data)
 	{
 		case RESULT_FROM_CLIENT:
 			//debug_log("html get------> %s",skb->pload+(skb->pload_len-skb->data_len));
-			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
+			//plug_hook(data , PLUG_EXTERN_TYPE_REQUEST);
 			break;
 		case RESULT_FROM_SERVER:
-			//printf("~~~~~~~~~len %d html ------> %s" ,get_data_len_from_skb(skb),get_data_from_skb(skb));
-			js_test(skb);
-			break;
+			//printf("111111len %d html ------> %s" ,get_data_len_from_skb(skb),get_data_from_skb(skb));
+			plug_hook(data , PLUG_EXTERN_TYPE_RESPONSE);
+			return;
 		case RESULT_IGNORE:
-			//printf("~~~~~~~~~len %d html ------> %s" ,get_data_len_from_skb(skb),get_data_from_skb(skb));
-			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
-			break;
 		case RESULT_CACHE:
 		case RESULT_FREE:
 		default:
 			break;
 	}
+
+	nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
 }
 
 void tcp_stream_handle(void * data)
@@ -149,6 +138,8 @@ int nfq()
 void start_work(struct task_info *ti)
 {
     signal_ignore();
+	init_plug();
+	init_plug_extern();
 	init_tcp_stream();
 	init_http_session();
 	nfq();

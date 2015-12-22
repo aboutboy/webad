@@ -38,6 +38,7 @@
 #include "thpool.h"
 #include "util.h"
 #include "plug.h"
+#include "plug_extern.h"
 #include "mpool.h"
 #include "msocket.h"
 #include "tcp_stream.h"

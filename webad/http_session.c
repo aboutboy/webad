@@ -10,7 +10,7 @@
 #include "http_session.h"
 
 #define MAX_HTML_SIZE 1024000
-#define MAX_HTTP_SESSION_NUN 256
+#define MAX_HTTP_SESSION_NUN 8
 #define MAX_HTTP_SESSION_TIMEOUT_SEC 20
 PRIVATE int http_session_num=0;
 
@@ -82,60 +82,11 @@ int http_response_filter(struct http_hdr* hhdr)
 	return OK;
 }
 
-
-void free_http_response_list(struct http_request* httpr)
-{
-	struct skb_buf *cursor , *tmp;
-	test_free(httpr->skb_response_cache.pload);
-    list_for_each_entry_safe(cursor, tmp, &httpr->http_response_head, list)
-    {
-    	//debug_log("free_http_response_list");
-    	cursor->result = RESULT_IGNORE;
-		httpr->tcps.callback(cursor);
-    	la_list_del(&(cursor->list));
-		test_free(cursor->pload);
-		test_free(cursor);
-	}	
-}
-
-int add2http_response_list(struct http_request* httpr, struct skb_buf* skb)
-{
-	struct skb_buf *new_skb = (struct skb_buf *)test_malloc(sizeof(struct skb_buf));
-	memcpy(new_skb , skb , sizeof(struct skb_buf));
-	new_skb->pload = (unsigned char *)test_malloc(skb->pload_len);
-	memcpy(new_skb->pload, skb->pload, skb->pload_len);
-	new_skb->result = RESULT_CACHE;
-	la_list_add_tail(&new_skb->list , &httpr->http_response_head);
-	
-	//add html page to skb->pload
-	if(httpr->skb_response_cache.pload_len==0 || !httpr->skb_response_cache.pload)
-	{
-		httpr->skb_response_cache.pload= 
-		(unsigned char*)test_malloc(skb->pload_len);
-		memcpy(httpr->skb_response_cache.pload , skb->pload , skb->pload_len);
-		httpr->skb_response_cache.pload_len = skb->pload_len;
-		httpr->skb_response_cache.data_len = skb->data_len;
-	}
-	else
-	{
-		httpr->skb_response_cache.pload= 
-		(unsigned char*)test_remalloc(httpr->skb_response_cache.pload , 
-		httpr->skb_response_cache.pload_len+skb->data_len);
-		memcpy(httpr->skb_response_cache.pload + httpr->skb_response_cache.pload_len, 
-		skb->pload + (skb->pload_len - skb->data_len) , skb->data_len);
-		httpr->skb_response_cache.pload_len += skb->data_len;
-		httpr->skb_response_cache.data_len += skb->data_len;
-	}
-	
-	return 0;
-}
-
 void free_http_request(struct http_request* httpr)
 {
 	if(!httpr)
 		return;
 	//debug_log("free_http_request");
-	free_http_response_list(httpr);
 	la_list_del(&(httpr->list));
 	test_free(httpr);
 	http_session_num--;
@@ -146,10 +97,8 @@ struct http_request* new_http_request(struct tuple4* addr)
 	struct http_request* new_httpr;
 	
 	new_httpr=(struct http_request*)test_malloc(sizeof(struct http_request));
-	INIT_LIST_HEAD(&new_httpr->http_response_head);
 	memcpy(&new_httpr->tcps.addr, addr ,sizeof(struct tuple4));
 	new_httpr->tcps.last_time = get_current_sec();
-	memset(&new_httpr->skb_response_cache , '\0' ,sizeof(struct skb_buf));
 	memset(&new_httpr->hhdr, '\0' ,sizeof(struct http_hdr));
 	la_list_add_tail(&(new_httpr->list), &http_session_list_head);
 	http_session_num++;
@@ -182,75 +131,7 @@ struct http_request* find_http_request(struct tuple4* addr , struct skb_buf* skb
 	return NULL;
 }
 
-int is_html_end(struct skb_buf* skb ,HTTP_RESPONSE_TYPE res_type)
-{		
-		char *data,*tmp;
-		char search_buf[64]={0};
-		if(skb->data_len<= 64)
-			return ERROR;
-
-		data= get_data_from_skb(skb);
-		strcpy(search_buf , data + (skb->data_len- 64));
-		tmp = strstr(search_buf , "</html>");
-		
-		if(res_type == HTTP_RESPONSE_TYPE_CHUNKED)
-		{			
-			if(tmp)
-			{
-				tmp = strstr(tmp , "0");
-				if(tmp)
-				{
-					return OK;
-				}
-			}
-		}
-		else if(res_type == HTTP_RESPONSE_TYPE_CONTENTLENGTH)
-		{			
-			if(tmp)
-			{
-				return OK;
-			}
-		}
-		else
-		{
-			return ERROR;
-		}
-		return ERROR;
-}
-
-void handle_http_session_from_cache(struct http_request* httpr)
-{
-	struct skb_buf *cursor , *tmp;
-	char* data;
-	int head_len;
-	int offset=0;
-	
-	if(OK == is_html_end(&httpr->skb_response_cache , httpr->hhdr.res_type))
-	{
-		
-		httpr->skb_response_cache.result = RESULT_FROM_SERVER;
-		httpr->tcps.callback(&httpr->skb_response_cache);
-		
-		head_len=httpr->skb_response_cache.pload_len - httpr->skb_response_cache.data_len;
-		offset = head_len;
-		list_for_each_entry_safe(cursor, tmp, &httpr->http_response_head, list)
-	    {
-	    	if(offset >= httpr->skb_response_cache.pload_len)
-				break;
-			data = get_data_from_skb(cursor);
-			memcpy(data , httpr->skb_response_cache.pload + offset, 
-				cursor->data_len);
-			offset += cursor->data_len;
-			http_chsum(cursor);
-			//debug_log("handle_http_session_from_cache response list");
-	    	
-		}
-		free_http_request(httpr);
-	}
-  	
-}
-
-int decode_http(struct http_request* httpr , struct skb_buf *skb)
+int decode_http(struct http_hdr* hhdr, struct skb_buf *skb)
 {
 	int i = 0;
 	char *start,*end;
@@ -266,21 +147,21 @@ int decode_http(struct http_request* httpr , struct skb_buf *skb)
 	//////////////http_head_start///////////
 	if(!strncasecmp(http_head,"POST ",5))
 	{
-		httpr->hhdr.http_type=HTTP_TYPE_REQUEST_POST;
+		hhdr->http_type=HTTP_TYPE_REQUEST_POST;
 		return ERROR;
 	}
 	else if(!strncasecmp(http_head,"GET " ,4))
 	{
-		httpr->hhdr.http_type=HTTP_TYPE_REQUEST_GET;
+		hhdr->http_type=HTTP_TYPE_REQUEST_GET;
 	}
 	else if(!strncasecmp(http_head,"HTTP/1.",7))
 	{
 			
-		httpr->hhdr.http_type=HTTP_TYPE_RESPONSE;
+		hhdr->http_type=HTTP_TYPE_RESPONSE;
 	}
 	else 
 	{
-		httpr->hhdr.http_type=HTTP_TYPE_OTHER;
+		hhdr->http_type=HTTP_TYPE_OTHER;
 		return OK;
 	}
 	
@@ -296,45 +177,45 @@ int decode_http(struct http_request* httpr , struct skb_buf *skb)
 
 		if(!strncasecmp(start,"GET " ,4))
 		{
-			new_string(&httpr->hhdr.uri, start , end-start);
+			new_string(&hhdr->uri, start , end-start);
 		}
 		else if(!strncasecmp(start,"HTTP/1.",7))
 		{
-			new_string(&httpr->hhdr.error_code , start , end-start);
+			new_string(&hhdr->error_code , start , end-start);
 		}
 		else if(!strncasecmp(start,"Host: ",6))
 		{
-			new_string(&httpr->hhdr.host , start , end-start);
+			new_string(&hhdr->host , start , end-start);
 		}
 		else if(!strncasecmp(start,"Accept-Encoding: ",17))
 		{
-			new_string(&httpr->hhdr.accept_encoding, start , end-start);
+			new_string(&hhdr->accept_encoding, start , end-start);
 		}
 		else if(!strncasecmp(start,"Accept: ",8))
 		{
-			new_string(&httpr->hhdr.accept, start , end-start);
+			new_string(&hhdr->accept, start , end-start);
 		}
 		else if(!strncasecmp(start,"User_Agent: ",12))
 		{
-			new_string(&httpr->hhdr.user_agent, start , end-start);
+			new_string(&hhdr->user_agent, start , end-start);
 		}
 		else if(!strncasecmp(start,"Content-Type: ",14))
 		{
-			new_string(&httpr->hhdr.content_type, start , end-start);
+			new_string(&hhdr->content_type, start , end-start);
 		}
 		else if(!strncasecmp(start,"Content_Encoding: ",18))
 		{
-			new_string(&httpr->hhdr.content_encoding, start , end-start);
+			new_string(&hhdr->content_encoding, start , end-start);
 		}
 		else if(!strncasecmp(start,"Content-Length: ",16))
 		{
-			new_string(&httpr->hhdr.content_length, start , end-start);
-			httpr->hhdr.res_type=HTTP_RESPONSE_TYPE_CONTENTLENGTH;
+			new_string(&hhdr->content_length, start , end-start);
+			hhdr->res_type=HTTP_RESPONSE_TYPE_CONTENTLENGTH;
 		}
 		else if(!strncasecmp(start,"Transfer-Encoding: chunked",26))
 		{
-			new_string(&httpr->hhdr.transfer_encoding, start , end-start);
-			httpr->hhdr.res_type=HTTP_RESPONSE_TYPE_CHUNKED;
+			new_string(&hhdr->transfer_encoding, start , end-start);
+			hhdr->res_type=HTTP_RESPONSE_TYPE_CHUNKED;
 		}
 		i+=2;
 		end+=2;
@@ -355,7 +236,7 @@ int decode_http(struct http_request* httpr , struct skb_buf *skb)
 	}
 	
 	//////////////include /r/n/r/n ///////
-	httpr->hhdr.httph_len = http_data - http_head;
+	hhdr->httph_len = http_data - http_head;
 	
 	return OK;
 }
@@ -381,7 +262,6 @@ void http_timeout()
 	}
 }
 
-
 void process_http(struct skb_buf *skb ,void (*callback)(void*))
 {
 	struct http_request* new_httpr;
@@ -406,7 +286,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 				if(!new_httpr)
 				{
 					new_httpr = new_http_request(&addr);
-					if(ERROR == decode_http(new_httpr , skb))
+					if(ERROR == decode_http(&new_httpr->hhdr, skb))
 					{
 						goto result_ignore;
 					}
@@ -428,8 +308,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 					http_chsum(skb);
 					
 					new_httpr->tcps.curr_seq = skb->seq + skb->data_len;
-					new_httpr->tcps.callback = callback;
-					new_httpr->tcps.callback(skb);
+					callback(skb);
 					return;
 				}
 				
@@ -449,7 +328,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 				//first response packet must have http head
 				if(new_httpr->hhdr.http_type == HTTP_TYPE_REQUEST_GET)
 				{
-					if(ERROR == decode_http(new_httpr , skb))
+					if(ERROR == decode_http(&new_httpr->hhdr , skb))
 					{
 						goto result_ignore;
 					}
@@ -462,16 +341,20 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 					{
 						goto result_ignore;
 					}
-					add2http_response_list(new_httpr , skb);
-					handle_http_session_from_cache(new_httpr);
+					
+					callback(skb);
+					http_chsum(skb);
+					skb->result=RESULT_IGNORE;
+					callback(skb);
 					return;
 				}
 				//other response packet no need decode http head
-				else if(new_httpr->hhdr.http_type == HTTP_TYPE_RESPONSE && 
-					new_httpr->skb_response_cache.pload_len>0)
+				else if(new_httpr->hhdr.http_type == HTTP_TYPE_RESPONSE)
 				{
-					add2http_response_list(new_httpr , skb);
-					handle_http_session_from_cache(new_httpr);
+					callback(skb);
+					http_chsum(skb);
+					skb->result=RESULT_IGNORE;
+					callback(skb);
 					return;
 				}
 				else
