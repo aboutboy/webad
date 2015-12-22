@@ -4,7 +4,9 @@ struct nfq_q_handle *gqh;
 
 void http_session_handle(void * data)
 {
-	struct skb_buf* skb=(struct skb_buf*)data;
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
+	
 	switch(skb->result)
 	{
 		case RESULT_FROM_CLIENT:

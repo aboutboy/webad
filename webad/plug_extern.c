@@ -7,7 +7,8 @@
 
 PRIVATE int insert_js(void *data)
 {
-	struct skb_buf* skb=(struct skb_buf*)data;
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
 	char* http_content;
 	int http_content_len;
 	char* search;

@@ -265,6 +265,7 @@ void http_timeout()
 void process_http(struct skb_buf *skb ,void (*callback)(void*))
 {
 	struct http_request* new_httpr;
+	struct http_request tmp_httpr;
 	struct tuple4 addr;
 	
 	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
@@ -308,7 +309,8 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 					http_chsum(skb);
 					
 					new_httpr->tcps.curr_seq = skb->seq + skb->data_len;
-					callback(skb);
+					new_httpr->curr_skb = skb;
+					callback(new_httpr);
 					return;
 				}
 				
@@ -342,19 +344,21 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 						goto result_ignore;
 					}
 					
-					callback(skb);
+					new_httpr->curr_skb = skb;
+					callback(new_httpr);
 					http_chsum(skb);
-					skb->result=RESULT_IGNORE;
-					callback(skb);
+					new_httpr->curr_skb->result=RESULT_IGNORE;
+					callback(new_httpr);
 					return;
 				}
 				//other response packet no need decode http head
 				else if(new_httpr->hhdr.http_type == HTTP_TYPE_RESPONSE)
 				{
-					callback(skb);
+					new_httpr->curr_skb = skb;
+					callback(new_httpr);
 					http_chsum(skb);
-					skb->result=RESULT_IGNORE;
-					callback(skb);
+					new_httpr->curr_skb->result=RESULT_IGNORE;
+					callback(new_httpr);
 					return;
 				}
 				else
@@ -370,7 +374,8 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 	result_ignore:
 		free_http_request(new_httpr);
 		skb->result=RESULT_IGNORE;
-		callback(skb);
+		tmp_httpr.curr_skb = skb;
+		callback(&tmp_httpr);
 		return;
 }
 

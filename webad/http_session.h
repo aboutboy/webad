@@ -46,6 +46,7 @@ struct http_request
 	struct list_head list;
 	struct tcp_stream tcps;
 	struct http_hdr hhdr;
+	struct skb_buf *curr_skb;
 };
 
 char* get_data_from_skb(struct skb_buf* skb);
