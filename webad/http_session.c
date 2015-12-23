@@ -26,6 +26,29 @@ int get_data_len_from_skb(struct skb_buf* skb)
 	return skb->data_len;
 }
 
+void change_seq(struct http_request* httpr)
+{
+	struct skb_buf* skb=httpr->curr_skb;
+	
+	//after first packet
+
+	if(httpr->response_num<=1)
+	{
+		return;
+	}
+	if(httpr->next_seq <= skb->seq)
+	{
+		//debug_log("2222222222");
+		return;
+	}
+	skb->seq = httpr->next_seq;
+	httpr->next_seq += skb->data_len;
+	
+	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
+	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
+	this_tcphdr->seq=htonl(skb->seq);
+}
+
 void http_chsum(struct skb_buf* skb)
 {
 	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
@@ -97,9 +120,9 @@ struct http_request* new_http_request(struct tuple4* addr)
 	struct http_request* new_httpr;
 	
 	new_httpr=(struct http_request*)test_malloc(sizeof(struct http_request));
+	memset(new_httpr, '\0' ,sizeof(struct http_request));
 	memcpy(&new_httpr->tcps.addr, addr ,sizeof(struct tuple4));
 	new_httpr->tcps.last_time = get_current_sec();
-	memset(&new_httpr->hhdr, '\0' ,sizeof(struct http_hdr));
 	la_list_add_tail(&(new_httpr->list), &http_session_list_head);
 	http_session_num++;
 	return new_httpr;
@@ -306,12 +329,8 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 						goto result_ignore;
 					}
 					
-					http_chsum(skb);
+					goto result_client;
 					
-					new_httpr->tcps.curr_seq = skb->seq + skb->data_len;
-					new_httpr->curr_skb = skb;
-					callback(new_httpr);
-					return;
 				}
 				
 				//repeat session request
@@ -343,23 +362,13 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 					{
 						goto result_ignore;
 					}
-					
-					new_httpr->curr_skb = skb;
-					callback(new_httpr);
-					http_chsum(skb);
-					new_httpr->curr_skb->result=RESULT_IGNORE;
-					callback(new_httpr);
-					return;
+
+					goto result_server;
 				}
 				//other response packet no need decode http head
 				else if(new_httpr->hhdr.http_type == HTTP_TYPE_RESPONSE)
 				{
-					new_httpr->curr_skb = skb;
-					callback(new_httpr);
-					http_chsum(skb);
-					new_httpr->curr_skb->result=RESULT_IGNORE;
-					callback(new_httpr);
-					return;
+					goto result_server;
 				}
 				else
 				{
@@ -371,6 +380,23 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		default:break;	
 	}
 
+	result_client:
+		new_httpr->tcps.curr_seq = skb->seq + skb->data_len;
+		new_httpr->curr_skb = skb;
+		callback(new_httpr);
+		http_chsum(skb);
+		new_httpr->curr_skb->result=RESULT_IGNORE;
+		callback(new_httpr);
+		return;
+	result_server:
+		new_httpr->response_num++;
+		new_httpr->curr_skb = skb;
+		callback(new_httpr);
+		change_seq(new_httpr);
+		http_chsum(skb);
+		new_httpr->curr_skb->result=RESULT_IGNORE;
+		callback(new_httpr);
+		return;
 	result_ignore:
 		free_http_request(new_httpr);
 		skb->result=RESULT_IGNORE;

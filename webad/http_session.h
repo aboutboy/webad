@@ -46,6 +46,8 @@ struct http_request
 	struct list_head list;
 	struct tcp_stream tcps;
 	struct http_hdr hhdr;
+	int response_num;
+	unsigned long next_seq;
 	struct skb_buf *curr_skb;
 };
 
