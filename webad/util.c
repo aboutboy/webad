@@ -804,6 +804,14 @@ void i2hex(const int src_i , char* hex_str)
         return;
 }
 
+void i2str(const int src_i , char* str)
+{
+        sprintf(str , "%d" , src_i);
+
+        return;
+}
+
+
 void *test_malloc(int x)
 { 
 	void *ret = malloc(x);   

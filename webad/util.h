@@ -50,11 +50,9 @@ unsigned short ip_chsum(struct iphdr *iph);
 unsigned short tcp_chsum(struct iphdr *iph , struct tcphdr *tcp ,int tcp_len);
 void hex2i(const char* hex_str, int* des_i);
 void i2hex(const int src_i , char* hex_str);
-
+void i2str(const int src_i , char* str);
 void *test_malloc(int x);
-
 void *test_remalloc(void * p ,int x);
-
 void test_free(void* x);
 
 #endif
