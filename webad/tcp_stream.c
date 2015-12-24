@@ -164,9 +164,9 @@ int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 	//2.1 repeat or overlap
 	else if(next_seq > skb->seq)
 	{	
-		if(next_seq == skb->seq + skb->data_len)
+		if(tcps->curr_seq == skb->seq)
 		{
-			return RESULT_IGNORE;
+			return RESULT_FROM_SERVER;
 		}
 		//debug_log("repeat overlap %lu---%lu" ,tcps->curr_seq + tcps->curr_data_len,skb->seq);
 		free_tcp_stream_abnor(tcps);
@@ -304,7 +304,6 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	//data
 	if(this_tcphdr->ack && new_tcps->state==TCP_STATE_DATA)
 	{
-		/*
 		skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
 		switch(skb->result)
 		{
@@ -321,9 +320,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 		}
 
 		handle_tcp_stream_from_cache(new_tcps);
-		*/
-		skb->result = RESULT_FROM_SERVER;
-		callback(skb);
+		
 		return;
 	}
 	else
