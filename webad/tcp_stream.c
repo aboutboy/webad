@@ -304,6 +304,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	//data
 	if(this_tcphdr->ack && new_tcps->state==TCP_STATE_DATA)
 	{
+		/*
 		skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
 		switch(skb->result)
 		{
@@ -320,7 +321,9 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 		}
 
 		handle_tcp_stream_from_cache(new_tcps);
-		
+		*/
+		skb->result = RESULT_FROM_SERVER;
+		callback(skb);
 		return;
 	}
 	else
