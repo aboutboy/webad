@@ -166,11 +166,9 @@ int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 	{	
 		if(next_seq == skb->seq + skb->data_len)
 		{
-			tcps->curr_seq= skb->seq;
-			tcps->curr_data_len=skb->data_len;
-			return RESULT_FROM_SERVER;
+			return RESULT_IGNORE;
 		}
-		debug_log("repeat overlap %lu---%lu" ,tcps->curr_seq + tcps->curr_data_len,skb->seq);
+		//debug_log("repeat overlap %lu---%lu" ,tcps->curr_seq + tcps->curr_data_len,skb->seq);
 		free_tcp_stream_abnor(tcps);
 		return RESULT_IGNORE;
 	}
