@@ -32,7 +32,6 @@ enum
 {
 	RESULT_IGNORE,
 	RESULT_CACHE,
-	RESULT_FREE,
 	RESULT_FROM_CLIENT,
 	RESULT_FROM_SERVER,
 	RESULT_OTHER
@@ -63,6 +62,7 @@ struct tcp_stream
 	char from_client;
 	struct list_head ofo_from_server_head;//only need recompose data from server 
 	unsigned long curr_seq;
+	unsigned int curr_data_len;
 	void (*callback)(void*);
 };
 

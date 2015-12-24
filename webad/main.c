@@ -20,7 +20,6 @@ void http_session_handle(void * data)
 			return;
 		case RESULT_IGNORE:
 		case RESULT_CACHE:
-		case RESULT_FREE:
 		default:
 			break;
 	}
@@ -43,7 +42,6 @@ void tcp_stream_handle(void * data)
 			nfq_set_verdict(gqh, skb->packet_id, NF_ACCEPT, skb->pload_len, skb->pload);
 			break;
 		case RESULT_CACHE:
-		case RESULT_FREE:
 		default:
 			break;
 	}

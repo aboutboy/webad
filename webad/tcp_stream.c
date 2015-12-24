@@ -107,9 +107,7 @@ void free_tcp_stream_timeout(struct tcp_stream* tcps)
 		//debug_log("ofo list free timeout");
 		free_ofo(cursor);
 	}
-	la_list_del(&(tcps->list));
-	test_free(tcps);
-	tcp_stream_num--;
+	free_tcp_stream(tcps);
 }
 
 void free_tcp_stream_abnor(struct tcp_stream* tcps)
@@ -131,13 +129,14 @@ void handle_tcp_stream_from_cache(struct tcp_stream* tcps)
     list_for_each_entry_safe(cursor, tmp, &tcps->ofo_from_server_head, list)
     {
     	//debug_log("%lu--%lu" ,tcps->curr_seq , cursor->seq);
-    	if(tcps->curr_seq == cursor->seq)
+    	if(tcps->curr_seq + tcps->curr_data_len== cursor->seq)
     	{
     		
 			//debug_log("ofo cache free");
 	    	cursor->result=RESULT_FROM_SERVER;
 			tcps->callback(cursor);
-			tcps->curr_seq= cursor->seq + cursor->data_len;
+			tcps->curr_seq = cursor->seq ;
+			tcps->curr_data_len = cursor->data_len;
 			free_ofo(cursor);
 			handle_tcp_stream_from_cache(tcps);
 			break;
@@ -148,35 +147,35 @@ void handle_tcp_stream_from_cache(struct tcp_stream* tcps)
 int handle_tcp_stream_from_skb(struct tcp_stream* tcps, struct skb_buf* skb)
 {
 
+	unsigned next_seq;
+
+	next_seq = tcps->curr_seq + tcps->curr_data_len;
 	//debug_log("old seq %lu len %d----last seq %lu len %d",tcps->skb.seq ,tcps->skb.data_len,skb->seq,skb->data_len);
 	//debug_log("%d:%d-->%d:%d seq %lu datalen %d" , tcps->addr.sip ,  tcps->addr.dip ,  tcps->addr.sp ,  tcps->addr.dp,
 	//			skb->seq , skb->data_len);
 	//1. in order	
-	if(tcps->curr_seq== skb->seq)
+	if(next_seq== skb->seq)
 	{
-		tcps->curr_seq= skb->seq+skb->data_len;
+		tcps->curr_seq= skb->seq;
+		tcps->curr_data_len=skb->data_len;
 		return RESULT_FROM_SERVER;
 	}
 	//2. out of order
 	//2.1 repeat or overlap
-	else if(tcps->curr_seq > skb->seq)
+	else if(next_seq > skb->seq)
 	{	
-		//repeat
-		if(tcps->curr_seq==skb->seq+skb->data_len)
+		if(next_seq == skb->seq + skb->data_len)
 		{
-			skb->pload_len=skb->pload_len-skb->data_len;
-			return RESULT_IGNORE;
+			tcps->curr_seq= skb->seq;
+			tcps->curr_data_len=skb->data_len;
+			return RESULT_FROM_SERVER;
 		}
-		//overlap
-		else
-		{
-			free_tcp_stream_abnor(tcps);
-			return RESULT_FREE;
-		}
-		
+		debug_log("repeat overlap %lu---%lu" ,tcps->curr_seq + tcps->curr_data_len,skb->seq);
+		free_tcp_stream_abnor(tcps);
+		return RESULT_IGNORE;
 	}
 	//2.2 arrive to early
-	else if(tcps->curr_seq < skb->seq)
+	else if(next_seq < skb->seq)
 	{
 		add2ofo_list(tcps , skb);
 		return RESULT_CACHE;
@@ -273,6 +272,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	{
 		new_tcps->state=TCP_STATE_DATA;
 		new_tcps->curr_seq= skb->seq+1;
+		new_tcps->curr_data_len = 0;
 		//debug_log("first seq %lu" , new_tcps->curr_seq);
 		skb->result=RESULT_IGNORE;
 		callback(skb);
@@ -310,10 +310,10 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 		switch(skb->result)
 		{
 			case RESULT_FROM_SERVER:
-			case RESULT_IGNORE:
 				callback(skb);
 				break;
-			case RESULT_FREE:
+			case RESULT_IGNORE:
+				callback(skb);
 				return;
 			case RESULT_CACHE:
 			default:

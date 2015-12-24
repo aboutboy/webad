@@ -145,7 +145,7 @@ struct http_request* find_http_request(struct tuple4* addr , struct skb_buf* skb
 			addr->dip== cursor->tcps.addr.sip &&
 			addr->sp == cursor->tcps.addr.dp &&
 			addr->dp == cursor->tcps.addr.sp &&
-			skb->ack_seq == cursor->tcps.curr_seq)
+			skb->ack_seq == cursor->tcps.curr_seq + cursor->tcps.curr_data_len)
 		{
 			return cursor;
 		}
@@ -381,7 +381,8 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 	}
 
 	result_client:
-		new_httpr->tcps.curr_seq = skb->seq + skb->data_len;
+		new_httpr->tcps.curr_seq = skb->seq ;
+		new_httpr->tcps.curr_data_len = skb->data_len;
 		new_httpr->curr_skb = skb;
 		callback(new_httpr);
 		http_chsum(skb);
