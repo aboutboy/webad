@@ -220,6 +220,11 @@ int decode_http(struct http_hdr* hhdr, struct skb_buf *skb)
 			new_string(&hhdr->transfer_encoding, start , end-start);
 			hhdr->res_type=HTTP_RESPONSE_TYPE_CHUNKED;
 		}
+		else if(!strncasecmp(start,"Transfer-Encoding:  chunked",27))
+		{
+			new_string(&hhdr->transfer_encoding, start , end-start);
+			hhdr->res_type=HTTP_RESPONSE_TYPE_CHUNKED;
+		}
 		i+=2;
 		end+=2;
 		start=end;

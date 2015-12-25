@@ -31,13 +31,13 @@ PRIVATE int change_chunked_hex(void *data)
 	struct skb_buf* skb=httpr->curr_skb;
 	char* http_content;
 	char *hex_start,*hex_end;
-	char src_hex[8]={0} ,des_hex[32]={0};
+	char src_hex[32]={0} ,des_hex[32]={0};
 	int hex_len;
 	int hex_i;
 	
 	http_content = get_data_from_skb(skb);
 	hex_start = http_content + httpr->hhdr.httph_len;
-
+	
 	if(!hex_start)
 	{
 		return ERROR;
@@ -50,8 +50,19 @@ PRIVATE int change_chunked_hex(void *data)
 	}
 
 	hex_len=hex_end-hex_start;
-	
-	if(hex_len>5)
+	if(hex_len == 8)
+	{
+		if(!memcmp(hex_start , "0000" ,4))
+		{
+			hex_start+=4;
+			hex_len-=4;
+		}
+		else
+		{
+			return ERROR;
+		}
+	}
+	if(hex_len > 5)
 	{
 		return ERROR;
 	}
@@ -65,6 +76,7 @@ PRIVATE int change_chunked_hex(void *data)
 		return ERROR;
 	}
 	memcpy(hex_start , des_hex , hex_len);
+	
 	return OK;
 }
 
