@@ -35,6 +35,60 @@ void http_chsum(struct skb_buf* skb)
 	this_tcphdr->check=tcp_chsum(this_iphdr , this_tcphdr , skb->pload_len-4 * this_iphdr->ihl);
 }
 
+int is_html_end(struct http_request* httpr)
+{
+	char* http_content = get_data_from_skb(httpr->curr_skb);
+	int http_content_len = get_data_len_from_skb(httpr->curr_skb);
+	
+	char* search_data ;
+
+	if(httpr->response_num == 1)
+		return 0;
+	
+	if(httpr->hhdr.res_type==HTTP_RESPONSE_TYPE_CHUNKED)
+	{
+	 	if(http_content_len<8)
+		{
+			search_data = http_content;
+		}
+		else
+		{
+			search_data = http_content+(http_content_len - 8);
+		}
+		
+		if(strstr(search_data , "0\r\n"))
+		{
+			return 1;
+		}
+
+		if(http_content_len == 1)
+		{
+			if(search_data[0] == '0')
+			{
+				return 1;
+			}
+		}
+		
+	}
+	else if(httpr->hhdr.res_type==HTTP_RESPONSE_TYPE_CONTENTLENGTH)
+	{
+		if(http_content_len<64)
+		{
+			search_data = http_content;
+		}
+		else
+		{
+			search_data = http_content+(http_content_len - 64);
+		}
+		
+		if(strstr(search_data ,"</html>"))
+		{
+			return 1;
+		}
+    }	
+	
+	return 0;
+}
 int change_accept_encoding(struct http_hdr* hhdr)
 {
 	if(hhdr->accept_encoding.l <= 0)
@@ -381,6 +435,11 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		http_chsum(skb);
 		new_httpr->curr_skb->result=RESULT_IGNORE;
 		callback(new_httpr);
+		if(is_html_end(new_httpr))
+		{
+			//debug_log("end %s" , get_data_from_skb(new_httpr->curr_skb));
+			free_http_request(new_httpr);
+		}
 		return;
 	result_ignore:
 		free_http_request(new_httpr);
