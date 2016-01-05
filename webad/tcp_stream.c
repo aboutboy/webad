@@ -304,7 +304,8 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 	//data
 	if(this_tcphdr->ack && new_tcps->state==TCP_STATE_DATA)
 	{
-		skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
+		//skb->result = handle_tcp_stream_from_skb(new_tcps , skb);
+		skb->result=RESULT_FROM_SERVER;
 		switch(skb->result)
 		{
 			case RESULT_FROM_SERVER:
@@ -319,7 +320,7 @@ void process_tcp(struct skb_buf *skb ,void (*callback)(void*))
 				//cache to ofo list
 		}
 
-		handle_tcp_stream_from_cache(new_tcps);
+		//handle_tcp_stream_from_cache(new_tcps);
 		
 		return;
 	}
