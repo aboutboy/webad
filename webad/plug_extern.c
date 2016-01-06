@@ -117,8 +117,8 @@ PRIVATE int insert_js(void *data)
 	
     http_content_len=get_data_len_from_skb(skb);
     http_content=get_data_from_skb(skb);
-	
-	search=strstr(http_content , res);
+	//debug_log("insert js :  \n%s" , http_content);
+	search=strcasestr(http_content , res);
 	
 	if(!search)
 	{
