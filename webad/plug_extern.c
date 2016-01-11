@@ -149,10 +149,65 @@ PRIVATE int insert_js(void *data)
     return OK;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////
+
+#define QDH "test1"
+#define QDH_LEN strlen(QDH)
+
+PRIVATE int modify_cpc_qdh(void *data)
+{
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
+	char* http_content;
+	int http_content_len;
+	char *search , *search_end;
+	int search_len;
+	char* res="from=";
+	
+    http_content_len=get_data_len_from_skb(skb);
+    http_content=get_data_from_skb(skb);
+
+	if(skb->data_len<=0)
+		return ERROR;
+	
+    http_content_len=get_data_len_from_skb(skb);
+    http_content=get_data_from_skb(skb);
+	
+	search=strcasestr(http_content , res);
+	
+	if(!search)
+	{
+		return ERROR;
+	}
+	search +=strlen(res);
+	if(!search)
+	{
+		return ERROR;
+	}
+	debug_log("qdh1 :  \n%s" , search);
+	search_len=search - http_content;
+	if(search_len >= httpr->hhdr.uri.l)
+	{
+		return ERROR;
+	}
+
+	search_end =search + QDH_LEN;
+	debug_log("qdh3 :  \n%s" , search_end);
+
+	if(search_end[0] =='&' || search_end[0] ==' ')
+	{
+		memcpy(search , QDH , QDH_LEN);
+	}
+	debug_log("qdh2 :  \n%s" , http_content);
+    return OK;
+}
+
+
 int init_plug_extern()
 {
 	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
-	
+	new_plug(modify_cpc_qdh , PLUG_EXTERN_TYPE_REQUEST);
 	return 0;
 }
 

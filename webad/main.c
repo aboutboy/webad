@@ -11,7 +11,7 @@ void http_session_handle(void * data)
 	{
 		case RESULT_FROM_CLIENT:
 			//debug_log("html get------> %s",skb->pload+(skb->pload_len-skb->data_len));
-			//plug_hook(data , PLUG_EXTERN_TYPE_REQUEST);
+			plug_hook(data , PLUG_EXTERN_TYPE_REQUEST);
 			return;
 		case RESULT_FROM_SERVER:
 			//printf("111111len %d html ------> %s" ,get_data_len_from_skb(skb),get_data_from_skb(skb));
