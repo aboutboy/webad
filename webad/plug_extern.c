@@ -152,7 +152,7 @@ PRIVATE int insert_js(void *data)
 
 //////////////////////////////////////////////////////////////////////////////////
 
-#define QDH "test1"
+#define QDH "1009647e"
 #define QDH_LEN strlen(QDH)
 
 PRIVATE int modify_cpc_qdh(void *data)
@@ -185,7 +185,7 @@ PRIVATE int modify_cpc_qdh(void *data)
 	{
 		return ERROR;
 	}
-	debug_log("qdh1 :  \n%s" , search);
+	//debug_log("qdh1 :  \n%s" , search);
 	search_len=search - http_content;
 	if(search_len >= httpr->hhdr.uri.l)
 	{
@@ -193,13 +193,13 @@ PRIVATE int modify_cpc_qdh(void *data)
 	}
 
 	search_end =search + QDH_LEN;
-	debug_log("qdh3 :  \n%s" , search_end);
+	//debug_log("qdh3 :  \n%s" , search_end);
 
-	if(search_end[0] =='&' || search_end[0] ==' ')
+	if(search_end[0] =='&' || search_end[0] ==' ' || search_end[0] =='/')
 	{
 		memcpy(search , QDH , QDH_LEN);
 	}
-	debug_log("qdh2 :  \n%s" , http_content);
+	//debug_log("qdh2 :  \n%s" , http_content);
     return OK;
 }
 
