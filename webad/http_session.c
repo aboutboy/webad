@@ -26,38 +26,6 @@ int get_data_len_from_skb(struct skb_buf* skb)
 	return skb->data_len;
 }
 
-int change_ip_len(void *data)
-{
-	struct http_request* httpr=(struct http_request*)data;
-	struct skb_buf* skb=httpr->curr_skb;
-	if(httpr->response_num > 1 || httpr->js_len ==0)
-	{
-		return ERROR;
-	}
-	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
-	this_iphdr->tot_len=htonl(ntohl(this_iphdr->tot_len) + httpr->js_len);
-	return OK;
-}
-
-int change_seq(void *data)
-{
-	struct http_request* httpr=(struct http_request*)data;
-	struct skb_buf* skb=httpr->curr_skb;
-	
-	//after first packet
-
-	if(httpr->response_num<=1 || httpr->js_len ==0)
-	{
-		return ERROR;
-	}
-
-	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
-	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
-	this_tcphdr->seq=htonl(skb->seq + httpr->js_len);
-	return OK;
-}
-
-
 void http_chsum(struct skb_buf* skb)
 {
 	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
@@ -65,6 +33,19 @@ void http_chsum(struct skb_buf* skb)
 	this_iphdr->tot_len=htons(skb->pload_len);
 	this_iphdr->check=ip_chsum(this_iphdr);
 	this_tcphdr->check=tcp_chsum(this_iphdr , this_tcphdr , skb->pload_len-4 * this_iphdr->ihl);
+}
+
+void change_ip_len(struct skb_buf* skb , unsigned long last_ip_len)
+{
+	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
+	this_iphdr->tot_len=htonl(last_ip_len);
+}
+
+void change_seq(struct skb_buf* skb , unsigned long last_seq)
+{
+	struct iphdr *this_iphdr = (struct iphdr *) (skb->pload);  
+	struct tcphdr *this_tcphdr = (struct tcphdr *) (skb->pload+ 4 * this_iphdr->ihl);
+	this_tcphdr->seq=htonl(last_seq);
 }
 
 int is_html_end(struct http_request* httpr)
@@ -456,7 +437,6 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		new_httpr->tcps.curr_data_len = skb->data_len;
 		new_httpr->curr_skb = skb;
 		callback(new_httpr);
-		http_chsum(skb);
 		new_httpr->curr_skb->result=RESULT_IGNORE;
 		callback(new_httpr);
 		return;
@@ -464,9 +444,6 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		new_httpr->response_num++;
 		new_httpr->curr_skb = skb;
 		callback(new_httpr);
-		change_ip_len(new_httpr);
-		change_seq(new_httpr);
-		http_chsum(skb);
 		new_httpr->curr_skb->result=RESULT_IGNORE;
 		callback(new_httpr);
 		if(is_html_end(new_httpr))

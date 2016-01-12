@@ -53,6 +53,11 @@ struct http_request
 
 char* get_data_from_skb(struct skb_buf* skb);
 int get_data_len_from_skb(struct skb_buf* skb);
+
+void http_chsum(struct skb_buf* skb);
+void change_ip_len(struct skb_buf* skb , unsigned long last_ip_len);
+void change_seq(struct skb_buf* skb , unsigned long last_seq);
+
 void process_http(struct skb_buf *skb ,void (*callback)(void*));
 void init_http_session();
 

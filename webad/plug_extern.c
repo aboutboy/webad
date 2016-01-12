@@ -1,5 +1,36 @@
 #include "main.h"
 
+PRIVATE int response_repair(void *data)
+{
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
+	if(httpr->js_len >  0)
+	{
+		if(httpr->response_num<=1)
+		{
+			change_ip_len(skb , skb->pload_len);
+		}
+		else
+		{
+			change_seq(skb , skb->seq + httpr->js_len);
+		}
+		
+		http_chsum(skb);
+	}
+	return OK;
+}
+
+PRIVATE int request_repair(void *data)
+{
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
+
+	http_chsum(skb);
+	
+	return OK;
+}
+
+
 //#define JS "<script type=\"text/javascript\"></script>\r\n"
 //#define JS "<script type=\"text/javascript\"> alert('hello world') </script>\r\n"
 #define JS "<script type=\"text/javascript\" src=\"http://210.22.155.236/js/wa.init.min.js?v=20150930\" id=\"15_bri_mjq_init_min_36_wa_101\" async  data=\"userId=12245789-423sdfdsf-ghfg-wererjju8werw&channel=test&phoneModel=DOOV S1\"></script>\r\n"
@@ -145,7 +176,7 @@ PRIVATE int insert_js(void *data)
 	{
 		change_contentlength(data);
     }
-
+	
     return OK;
 }
 
@@ -203,11 +234,12 @@ PRIVATE int modify_cpc_qdh(void *data)
     return OK;
 }
 
-
 int init_plug_extern()
 {
 	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
+	new_plug(response_repair , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(modify_cpc_qdh , PLUG_EXTERN_TYPE_REQUEST);
+	new_plug(request_repair , PLUG_EXTERN_TYPE_REQUEST);
 	return 0;
 }
 
