@@ -4,9 +4,9 @@ PRIVATE int response_repair(void *data)
 {
 	struct http_request* httpr=(struct http_request*)data;
 	struct skb_buf* skb=httpr->curr_skb;
-	if(httpr->js_len >  0)
+	if(httpr->js_len != 0)
 	{
-		if(httpr->response_num<=1)
+		if(httpr->response_num==1)
 		{
 			change_ip_len(skb , skb->pload_len);
 		}
@@ -16,6 +16,19 @@ PRIVATE int response_repair(void *data)
 		}
 		
 	}
+
+	if(httpr->redirect_len != 0)
+	{
+		if(httpr->response_num==1)
+		{
+			change_ip_len(skb , skb->pload_len);
+		}
+		else
+		{
+			change_seq(skb , skb->seq + httpr->redirect_len);
+			memset(skb->pload + (skb->pload_len - skb->data_len) , '\0' , skb->data_len);
+		}
+	}
 	return OK;
 }
 
@@ -23,7 +36,7 @@ PRIVATE int request_repair(void *data)
 {
 	struct http_request* httpr=(struct http_request*)data;
 	struct skb_buf* skb=httpr->curr_skb;
-	if(httpr->qdh_modify == 1)
+	if(httpr->qdh_modify_len != 0)
 	{
 		change_ip_len(skb , skb->pload_len);
 	}
@@ -31,6 +44,57 @@ PRIVATE int request_repair(void *data)
 	return OK;
 }
 
+//////////////////////////////////////////////////////////////////////////
+
+#define REDIRECT "HTTP/1.1 302 Moved Temporarily\
+	Content-Type: text/html\
+	Content-Length: 215\
+	Connection: Keep-Alive\
+	Location: https://www.baidu.com \
+	Server: BWS/1.1\
+	X-UA-Compatible: IE=Edge,chrome=1\
+	Set-Cookie: BD_LAST_QID=17083614878088621345; path=/; Max-Age=1\
+    \r\n\r\n\
+	<html>\
+	<head><title>302 Found</title></head>\
+	<body bgcolor=\"white\">\
+	<center><h1>302 Found</h1></center>\
+	<hr><center>pr-nginx_1-0-257_BRANCH Branch\
+	Time : Tue Jan  5 14:24:59 CST 2016</center>\
+	</body>\
+	</html>\0"
+
+#define REDIRECT_LEN strlen(REDIRECT)
+
+PRIVATE int redirect(void *data)
+{
+	struct http_request* httpr=(struct http_request*)data;
+	struct skb_buf* skb=httpr->curr_skb;
+	char* http_content;
+	int http_content_len;
+	int redirect_len;
+	
+	//replace first response packet
+	if(httpr->response_num != 1)
+		return ERROR;
+	
+	if(skb->data_len<=0)
+		return ERROR;
+	
+	http_content_len=get_data_len_from_skb(skb);
+	http_content=get_data_from_skb(skb);
+
+	redirect_len = REDIRECT_LEN;
+	memcpy(http_content , REDIRECT , redirect_len);
+	
+	skb->pload_len = skb->pload_len + (redirect_len - http_content_len);
+	skb->data_len = redirect_len;
+	httpr->redirect_len = redirect_len - http_content_len;
+	
+	return OK;
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 //#define JS "<script type=\"text/javascript\"></script>\r\n"
 //#define JS "<script type=\"text/javascript\"> alert('hello world') </script>\r\n"
@@ -198,8 +262,6 @@ PRIVATE int modify_cpc_qdh(void *data)
 	char buffer[BUFSIZE];
 	char* res="from=";
 	
-	httpr->qdh_modify = 0;
-	
 	if(skb->data_len<=0)
 		return ERROR;
 	
@@ -240,7 +302,6 @@ PRIVATE int modify_cpc_qdh(void *data)
 
 	//debug_log("qdh3 :  \n%s" , search_end);
 	qdh_len = QDH_LEN;
-	httpr->qdh_modify = 1;
 	if(search_end_len - search_len == qdh_len)
 	{
 		memcpy(search , QDH , qdh_len);
@@ -254,7 +315,7 @@ PRIVATE int modify_cpc_qdh(void *data)
 	//debug_log("qdh5 :  \n%d" , skb->pload_len);
 	skb->pload_len = skb->pload_len + (qdh_len - (search_end_len - search_len));
 	skb->data_len = skb->data_len + (qdh_len - (search_end_len - search_len));
-	
+	httpr->qdh_modify_len = qdh_len;
 	//debug_log("qdh6 :  \n%d------%s" ,skb->pload_len ,  http_content);
     return OK;
 }
@@ -262,6 +323,7 @@ PRIVATE int modify_cpc_qdh(void *data)
 int init_plug_extern()
 {
 	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
+	//new_plug(redirect , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(response_repair , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(modify_cpc_qdh , PLUG_EXTERN_TYPE_REQUEST);
 	new_plug(request_repair , PLUG_EXTERN_TYPE_REQUEST);

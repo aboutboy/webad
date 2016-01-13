@@ -48,7 +48,8 @@ struct http_request
 	struct http_hdr hhdr;
 	int response_num;
 	int js_len;
-	int qdh_modify;
+	int qdh_modify_len;
+	int redirect_len;
 	struct skb_buf *curr_skb;
 };
 
