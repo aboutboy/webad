@@ -46,23 +46,16 @@ PRIVATE int request_repair(void *data)
 
 //////////////////////////////////////////////////////////////////////////
 
-#define REDIRECT "HTTP/1.1 302 Moved Temporarily\
-	Content-Type: text/html\
-	Content-Length: 215\
-	Connection: Keep-Alive\
-	Location: https://www.baidu.com \
-	Server: BWS/1.1\
-	X-UA-Compatible: IE=Edge,chrome=1\
-	Set-Cookie: BD_LAST_QID=17083614878088621345; path=/; Max-Age=1\
-    \r\n\r\n\
-	<html>\
-	<head><title>302 Found</title></head>\
-	<body bgcolor=\"white\">\
-	<center><h1>302 Found</h1></center>\
-	<hr><center>pr-nginx_1-0-257_BRANCH Branch\
-	Time : Tue Jan  5 14:24:59 CST 2016</center>\
-	</body>\
-	</html>\0"
+#define REDIRECT "HTTP/1.1 302 Moved Temporarily\r\n\
+Content-Type: text/html\r\n\
+Content-Length: 55\r\n\
+Connection: Keep-Alive\r\n\
+Location: https://www.baidu.com\r\n \
+\r\n\r\n\
+<html>\
+<head><title>302 Found</title></head>\
+test\
+</html>\0"
 
 #define REDIRECT_LEN strlen(REDIRECT)
 
@@ -90,7 +83,8 @@ PRIVATE int redirect(void *data)
 	skb->pload_len = skb->pload_len + (redirect_len - http_content_len);
 	skb->data_len = redirect_len;
 	httpr->redirect_len = redirect_len - http_content_len;
-	
+	skb->pload[skb->pload_len]='\0';
+	//debug_log("----------%s--------" , http_content);
 	return OK;
 }
 
@@ -322,8 +316,8 @@ PRIVATE int modify_cpc_qdh(void *data)
 
 int init_plug_extern()
 {
-	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
-	//new_plug(redirect , PLUG_EXTERN_TYPE_RESPONSE);
+	//new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
+	new_plug(redirect , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(response_repair , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(modify_cpc_qdh , PLUG_EXTERN_TYPE_REQUEST);
 	new_plug(request_repair , PLUG_EXTERN_TYPE_REQUEST);
