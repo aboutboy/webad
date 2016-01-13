@@ -47,14 +47,14 @@ struct http_request
 	struct tcp_stream tcps;
 	struct http_hdr hhdr;
 	int response_num;
-	unsigned int js_len;
+	int js_len;
+	int qdh_modify;
 	struct skb_buf *curr_skb;
 };
 
 char* get_data_from_skb(struct skb_buf* skb);
 int get_data_len_from_skb(struct skb_buf* skb);
 
-void http_chsum(struct skb_buf* skb);
 void change_ip_len(struct skb_buf* skb , unsigned long last_ip_len);
 void change_seq(struct skb_buf* skb , unsigned long last_seq);
 

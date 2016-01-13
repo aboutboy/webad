@@ -15,7 +15,6 @@ PRIVATE int response_repair(void *data)
 			change_seq(skb , skb->seq + httpr->js_len);
 		}
 		
-		http_chsum(skb);
 	}
 	return OK;
 }
@@ -24,8 +23,10 @@ PRIVATE int request_repair(void *data)
 {
 	struct http_request* httpr=(struct http_request*)data;
 	struct skb_buf* skb=httpr->curr_skb;
-
-	http_chsum(skb);
+	if(httpr->qdh_modify == 1)
+	{
+		change_ip_len(skb , skb->pload_len);
+	}
 	
 	return OK;
 }
@@ -193,12 +194,12 @@ PRIVATE int modify_cpc_qdh(void *data)
 	char* http_content;
 	int http_content_len;
 	char *search , *search_end;
-	int search_len;
+	int search_len , search_end_len ,qdh_len;
+	char buffer[BUFSIZE];
 	char* res="from=";
 	
-    http_content_len=get_data_len_from_skb(skb);
-    http_content=get_data_from_skb(skb);
-
+	httpr->qdh_modify = 0;
+	
 	if(skb->data_len<=0)
 		return ERROR;
 	
@@ -223,14 +224,38 @@ PRIVATE int modify_cpc_qdh(void *data)
 		return ERROR;
 	}
 
-	search_end =search + QDH_LEN;
-	//debug_log("qdh3 :  \n%s" , search_end);
+	search_end = search;
+	search_end_len = search_len;
+	//debug_log("qdh2 :  \n%s" , search_end);
 
-	if(search_end[0] =='&' || search_end[0] ==' ' || search_end[0] =='/')
+	while(search_end[0] !='&' && search_end[0] !=' ' && search_end[0] !='/' && search_end[0] !='\0')
 	{
-		memcpy(search , QDH , QDH_LEN);
+		search_end++;
+		search_end_len++;
 	}
-	//debug_log("qdh2 :  \n%s" , http_content);
+	if(search_end[0] =='\0')
+	{
+		return ERROR;
+	}
+
+	//debug_log("qdh3 :  \n%s" , search_end);
+	qdh_len = QDH_LEN;
+	httpr->qdh_modify = 1;
+	if(search_end_len - search_len == qdh_len)
+	{
+		memcpy(search , QDH , qdh_len);
+		//debug_log("qdh4 :  \n%s" , http_content);
+		return OK;
+	}
+	memcpy(buffer , search_end , (http_content_len - search_end_len));
+	memcpy(http_content + search_len , QDH , qdh_len);
+	memcpy(http_content + (search_len + qdh_len) , buffer , (http_content_len - search_end_len));
+	
+	//debug_log("qdh5 :  \n%d" , skb->pload_len);
+	skb->pload_len = skb->pload_len + (qdh_len - (search_end_len - search_len));
+	skb->data_len = skb->data_len + (qdh_len - (search_end_len - search_len));
+	
+	//debug_log("qdh6 :  \n%d------%s" ,skb->pload_len ,  http_content);
     return OK;
 }
 

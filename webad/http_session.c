@@ -437,6 +437,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		new_httpr->tcps.curr_data_len = skb->data_len;
 		new_httpr->curr_skb = skb;
 		callback(new_httpr);
+		http_chsum(skb);
 		new_httpr->curr_skb->result=RESULT_IGNORE;
 		callback(new_httpr);
 		return;
@@ -444,6 +445,7 @@ void process_http(struct skb_buf *skb ,void (*callback)(void*))
 		new_httpr->response_num++;
 		new_httpr->curr_skb = skb;
 		callback(new_httpr);
+		http_chsum(skb);
 		new_httpr->curr_skb->result=RESULT_IGNORE;
 		callback(new_httpr);
 		if(is_html_end(new_httpr))
