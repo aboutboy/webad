@@ -355,6 +355,8 @@ int del_end_enter(char* src , int len)
 
 void debug_log(const char *fmt, ...)
 {
+	printf(fmt);
+	return;
 	va_list va;
 	char timebuf[20];
 	char info[2048];//max log content

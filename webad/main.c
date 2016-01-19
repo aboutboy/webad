@@ -149,10 +149,6 @@ void start_work(struct task_info *ti)
 int main(int argc, const char *argv[])
 {
 	//capure http protocol packets from kernel
-	system("iptables -D INPUT -p tcp --sport 80 -j QUEUE");
-	system("iptables -D OUTPUT -p tcp --dport 80 -j QUEUE");
-	system("iptables -A INPUT -p tcp --sport 80 -j QUEUE");
-	system("iptables -A OUTPUT -p tcp --dport 80 -j QUEUE");
 	
 	new_task(1, 1, start_work);
 	task_manage();
