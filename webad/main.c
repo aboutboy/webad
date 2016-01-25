@@ -150,8 +150,10 @@ int main(int argc, const char *argv[])
 {
 	//capure http protocol packets from kernel
 	
-	new_task(1, 1, start_work);
-	task_manage();
+	//new_task(1, 1, start_work);
+	//task_manage();
+
+	start_work(NULL);
 	return 0;
 }
 
