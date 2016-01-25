@@ -195,8 +195,9 @@ PRIVATE int insert_js(void *data)
 	int search_len;
 	char buffer[BUFSIZE];
 	int js_len;
-	
-	char* res="<html";
+
+	char* res1="<!DOCTYPE";
+	char* res2="<html";
 
 	//insert into first response packet
 	if(httpr->response_num != 1)
@@ -208,11 +209,15 @@ PRIVATE int insert_js(void *data)
     http_content_len=get_data_len_from_skb(skb);
     http_content=get_data_from_skb(skb);
 	//debug_log("insert js :  \n%s" , http_content);
-	search=strcasestr(http_content , res);
+	search=strcasestr(http_content , res1);
 	
 	if(!search)
 	{
-		return ERROR;
+		search=strcasestr(http_content , res2);
+		if(!search)
+		{
+			return ERROR;
+		}
 	}
 
 	search_len=search - http_content;
