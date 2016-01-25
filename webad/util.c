@@ -397,7 +397,6 @@ void debug_log(const char *fmt, ...)
 	vsnprintf(info, sizeof(info), fmt, va);
 
 	fprintf(logfp,"%s-----: %s\n", timebuf, info);
-	fprintf(stderr,"%s-----: %s\n", timebuf, info);
 	fflush(logfp);
 	fclose(logfp);
 	va_end(va);

@@ -35,7 +35,7 @@ PRIVATE int task_create(struct task_info* ti)
 				return OK;
 			default:
 				ti->pid[i]=pid;
-				debug_log("Child's pid is %d\n",pid);
+				//debug_log("Child's pid is %d\n",pid);
 				break;
 		}
 	}

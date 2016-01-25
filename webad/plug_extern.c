@@ -316,8 +316,8 @@ PRIVATE int modify_cpc_qdh(void *data)
 
 int init_plug_extern()
 {
-	//new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
-	new_plug(redirect , PLUG_EXTERN_TYPE_RESPONSE);
+	new_plug(insert_js , PLUG_EXTERN_TYPE_RESPONSE);
+	//new_plug(redirect , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(response_repair , PLUG_EXTERN_TYPE_RESPONSE);
 	new_plug(modify_cpc_qdh , PLUG_EXTERN_TYPE_REQUEST);
 	new_plug(request_repair , PLUG_EXTERN_TYPE_REQUEST);
